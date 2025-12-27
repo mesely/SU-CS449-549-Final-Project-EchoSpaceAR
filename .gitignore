@@ -53,3 +53,32 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# macOS
+.DS_Store
+
+# env / secrets
+.env
+.utmp/
+__pycache__/
+
+# IDE
+.vscode/
+*.csproj
+*.sln
+*.slnx
+
+# Unity generated
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+
+# Build artifacts
+*.apk
+*.aab
+android_BackUpThisFolder_ButDontShipItWithYourGame/
+mono_crash*.json
