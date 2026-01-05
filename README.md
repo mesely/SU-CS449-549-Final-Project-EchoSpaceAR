@@ -1,111 +1,81 @@
-# 🎵 Real-time Audio Pipeline - START HERE
+# EchoSpace-AR
 
-## ⚡ Quick Start (2 minutes)
+**CS 449 / 549 – Human Computer Interaction**  
+Sabancı University
 
-### Step 1: Install Python packages
-```bash
-cd /Users/mesely/ses_yonu_test_2d
-bash setup.sh
-```
-
-### Step 2: Enable macOS microphone permission
-```
-System Settings 
-  → Privacy & Security 
-  → Microphone 
-  → Enable for Terminal (or your Python IDE)
-```
-
-### Step 3: Run the live audio visualizer
-```bash
-python3 SimplePipeline.py
-```
-
-You should see **real-time audio visualization** with:
-- 📊 **SPL graph** (top) - shows sound intensity in dBFS
-- 📈 **Frequency spectrum** (bottom) - shows which frequencies are present
-- 🎤 **Automatic mic selection** - picks best available microphone
+> *Designing environmental awareness without relying on sound.*
 
 ---
 
-## 🎯 What Was Fixed
-
-| Problem | Solution |
-|---------|----------|
-| ❌ `No microphone found` | ✅ Enhanced mic detection + macOS permissions guide |
-| ❌ `HTTP insecure error` | ✅ Enabled via `EnableInsecureHttpDev.cs` |
-| ❌ `Android offline` | ✅ Falls back to MacBook Pro mic |
-| ❌ `Pipeline missing` | ✅ Created complete HTTP bridge + utilities |
+## 🎥 Demo Video
+[![EchoSpace-AR Demo](https://img.youtube.com/vi/ouUNhELykuU/0.jpg)](https://www.youtube.com/watch?v=ouUNhELykuU)
 
 ---
 
-## 📂 New Files
-
-- ✅ **`SimplePipeline.py`** ← Start with this!
-- ✅ `pipeline_http_bridge.py` - HTTP server for Unity
-- ✅ `.env` - Configuration
-- ✅ `SETUP.md` - Detailed guide
-- ✅ `FIXES.md` - What was fixed
-- ✅ `setup.sh` - Auto-install
+## 🧠 Project Overview
+EchoSpace-AR is an augmented reality system designed to enhance environmental awareness for users who cannot rely on sound.  
+It captures real-world audio, classifies and interprets it using machine learning models, and presents **spatial, visual cues** in AR to reduce ambiguity and cognitive load.
 
 ---
 
-## 🔌 Unity Integration (Optional)
+## 🧩 HCI Foundations
+The project is grounded in Human-Computer Interaction principles:
 
-To connect Unity and see audio in Python:
+- **Norman’s Stages of Action**  
+  Supporting goal formation, execution, and evaluation through immediate visual feedback.
 
-1. **In Python terminal:**
-   ```bash
-   python3 RealTimeSPLVisualizer.py
-   ```
-   
-2. **In Unity Editor:**
-   - Run the scene with `AudioCaptureController.cs`
-   - Or run `StereoMicAndroidTest.cs` for Android
-   - Watch Unity logs for: `✅ client_hello OK`
-
-3. **Watch Python window** - plots update with Unity audio
+- **Information Foraging Theory**  
+  Reducing information scent cost by presenting only the most relevant environmental cues in the HUD.
 
 ---
 
-## 🔧 Configuration
+## 🏛️ HCI Alignment (Four Pillars)
+- **User Interface Requirements**  
+  XR HUD readability, font scaling, spatial placement, attention cues.
 
-### Python Server (automatically reads `.env`)
-```
-PIPELINE_HTTP_HOST=0.0.0.0  (listen on all interfaces)
-PIPELINE_HTTP_PORT=8000     (port number)
-GEMINI_API_KEY=...          (LLM API key)
-```
+- **Guidelines Documents & Process**  
+  Meta XR & Unity XR best practices, iteration checklist (latency, comfort, UX).
 
-### Unity Client (`BackendHttpClient.cs`)
-```csharp
-baseUrl = "http://172.20.10.2:8000";  // points to Python server
-```
+- **User Interface Software Tools**  
+  Unity XR Toolkit, Meta XR SDK, YAMNet sound classification, Whisper speech-to-text, backend integration.
 
-Change to `http://localhost:8000` for local testing.
+- **Expert Reviews & Usability Testing**  
+  On-device testing (Quest 2 / Quest 3), expert evaluations, Python-based audio analysis pipeline.
 
 ---
 
-## ✅ Verification Checklist
-
-- [ ] Run `python3 SimplePipeline.py` 
-- [ ] See device selection menu
-- [ ] See SPL + spectrum plots updating
-- [ ] Speak or play sound → see plots spike
-- [ ] Check `logs/` folder for CSV files
-
----
-
-## 📖 More Info
-
-- **Full setup guide:** See `SETUP.md`
-- **What was fixed:** See `FIXES.md`
-- **Troubleshooting:** See `SETUP.md#Troubleshooting`
+## 🧪 Usability Testing & Data Logging
+- **System Usability Scale (SUS)**
+- **Technology Acceptance Model (TAM)**
+- Logged metrics:
+  - User reaction time
+  - Classification accuracy
+  - System response latency
 
 ---
 
-**Next action:** Run `python3 SimplePipeline.py` and watch the live audio! 🚀
+## ⚖️ Design Trade-offs
+- Visibility vs. visual clutter  
+- Urgency signaling vs. distraction  
+- Precision vs. simplicity  
 
-## Reserved folders
-- `Android/` — placeholder for Android-side files (to be added by teammates).
-- `Python_Pipeline/` — placeholder for Python pipeline/tooling (to be added by teammates).
+**Limitations**
+- Lower accuracy in complex acoustic environments  
+- AR field-of-view constraints  
+- Short learning curve required
+
+---
+
+## 👥 Team
+- **Alper Çamlı** – Team Leader, Unity/Python Developer  
+- **Selman Yılmaz** – AR Developer, Data Analyst  
+- **Korhan Erdoğdu** – Android Developer, VR Graphics  
+- **Emre Berk Hamarat** – Hardware Coordinator  
+- **Şeyma Kalender** – Behavioral Data Lead  
+- **Zeynep Şahin** – UX/UI Researcher
+
+---
+
+## 📄 Presentation
+Full demo presentation is available here:  
+📎 **EchoSpace-AR_Presentation.pdf**
