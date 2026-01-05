@@ -1,74 +1,16 @@
-# Prerequisites
-*.d
-
-# Object files
-*.o
-*.ko
-*.obj
-*.elf
-
-# Linker output
-*.ilk
-*.map
-*.exp
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
-
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
-
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
-
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
-
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
-
-# debug information files
-*.dwo
-
-# macOS
+# =========================================
+# OS / Editor / IDE files
+# =========================================
 .DS_Store
+Thumbs.db
 
-# env / secrets
-.env
-.utmp/
-__pycache__/
-
-# IDE
+.idea/
 .vscode/
-*.csproj
-*.sln
-*.slnx
+*.swp
 
-# Unity generated
+# =========================================
+# Unity (applies anywhere, including Quest2_3/)
+# =========================================
 [Ll]ibrary/
 [Tt]emp/
 [Oo]bj/
@@ -76,9 +18,91 @@ __pycache__/
 [Bb]uilds/
 [Ll]ogs/
 [Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
 
-# Build artifacts
-*.apk
-*.aab
-android_BackUpThisFolder_ButDontShipItWithYourGame/
-mono_crash*.json
+# Visual Studio / Rider generated files
+*.csproj
+*.sln
+*.user
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Some Unity meta artifacts (rare but safe to ignore)
+*.pidb.meta
+
+# =========================================
+# Android (for Android/ folder and any nested Android projects)
+# =========================================
+Android/**/build/
+Android/**/.gradle/
+Android/**/.idea/
+Android/**/local.properties
+
+# Signing keys (never commit)
+Android/**/*.keystore
+Android/**/*.jks
+
+# Build outputs (never commit)
+Android/**/*.apk
+Android/**/*.aab
+
+# =========================================
+# Python (for Python_Pipeline/ tooling)
+# =========================================
+Python_Pipeline/**/__pycache__/
+Python_Pipeline/**/*.py[cod]
+Python_Pipeline/**/.pytest_cache/
+Python_Pipeline/**/.mypy_cache/
+Python_Pipeline/**/.ruff_cache/
+
+# Packaging / build outputs
+Python_Pipeline/**/dist/
+Python_Pipeline/**/build/
+Python_Pipeline/**/*.egg-info/
+
+# Virtual environments / env files
+Python_Pipeline/**/.venv/
+Python_Pipeline/**/venv/
+Python_Pipeline/**/.env
+
+# Optional: common output/data folders (uncomment if you generate large files here)
+# Python_Pipeline/**/data/
+# Python_Pipeline/**/outputs/
+# Python_Pipeline/**/runs/
+
+# --- OS ---
+.DS_Store
+
+# --- Unity ---
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+UserSettings/
+MemoryCaptures/
+
+# --- IDEs ---
+.vs/
+.idea/
+.vscode/
+*.csproj
+*.sln
+*.user
+*.unityproj
+*.pidb
+*.booproj
+*.svd
+
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
+venv/

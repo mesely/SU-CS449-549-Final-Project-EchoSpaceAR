@@ -105,3 +105,7 @@ Change to `http://localhost:8000` for local testing.
 ---
 
 **Next action:** Run `python3 SimplePipeline.py` and watch the live audio! 🚀
+
+## Reserved folders
+- `Android/` — placeholder for Android-side files (to be added by teammates).
+- `Python_Pipeline/` — placeholder for Python pipeline/tooling (to be added by teammates).

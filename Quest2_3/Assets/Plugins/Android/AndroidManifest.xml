@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools"
+          package="com.DefaultCompany.korhannewar">
+
+    <!-- Mikrofon izni -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Mikrofon donanımı (Quest 2’de var; required=false güvenli) -->
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
+    <application
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:icon="@mipmap/app_icon">
+
+        <!-- Unity 2023.2+ / Unity 6: TEK giriş noktası -->
+        <activity
+            android:name="com.unity3d.player.UnityPlayerGameActivity"
+            android:exported="true"
+            android:theme="@style/BaseUnityGameActivityTheme"
+            android:launchMode="singleTask"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <meta-data android:name="unityplayer.UnityActivity" android:value="true" />
+            <meta-data android:name="android.app.lib_name" android:value="game" />
+        </activity>
+
+    </application>
+</manifest>
