@@ -1,0 +1,18 @@
+# ===== Core =====
+numpy==1.26.4
+matplotlib==3.8.4
+sounddevice==0.4.6
+
+# ===== LLM (Gemini) client =====
+google-genai==0.3.0
+
+# ===== Whisper (faster-whisper) =====
+faster-whisper==1.0.3
+ctranslate2==4.4.0
+
+# ===== YAMNet (TensorFlow) =====
+tensorflow==2.15.0
+tensorflow-hub==0.16.1
+
+# ===== Optional but useful =====
+python-dotenv==1.0.1
