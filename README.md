@@ -1,7 +1,7 @@
 # EchoSpace-AR
 
 ## Demo Video
-[![Watch the demo on YouTube](https://www.youtube.com/watch?v=u3WOZcs7uyw)
+[[![Watch the demo on YouTube](https://www.youtube.com/watch?v=u3WOZcs7uyw)](https://www.youtube.com/watch?v=ouUNhELykuU)
 
 ## Overview
 EchoSpace-AR is an AR system that captures real-world audio, classifies events, and presents visual cues in the headset to support environmental awareness.
