@@ -48,13 +48,16 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import os
+import random
 import sys
 import time
 import uuid
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Iterable
 
 import numpy as np
@@ -65,16 +68,88 @@ from pipeline_runtime.classification import YamnetClassifier
 from pipeline_runtime.config import LOG_DIR, REDUCED_LABEL_SET, tf
 from pipeline_runtime.decision_layer import DecisionSnapshot, PriorityDecisionLayer
 from pipeline_runtime.spatial_audio import SpatialSnapshot, downmix_to_mono, ensure_frame_major, summarize_spatial_audio
+from pipeline_runtime.utils import resample_linear
 
 import matplotlib.pyplot as plt
+
+try:
+    import soundfile as sf
+except Exception:  # pragma: no cover - optional runtime dependency
+    sf = None
 
 
 EVAL_DIR = os.path.join(LOG_DIR, "evaluation")
 SUMMARY_CSV = os.path.join(EVAL_DIR, "model_benchmark_results.csv")
 PREDICTIONS_CSV = os.path.join(EVAL_DIR, "model_benchmark_predictions.csv")
-CLASSIFICATION_COMPARISON_PNG = os.path.join(EVAL_DIR, "model_benchmark_comparison.png")
-PIPELINE_BEHAVIOR_PNG = os.path.join(EVAL_DIR, "pipeline_behavior_comparison.png")
-MULTILABEL_CLASS_REPORT_PNG = os.path.join(EVAL_DIR, "multilabel_class_report.png")
+CORE_METRICS_PNG = os.path.join(EVAL_DIR, "1_overall_core_metrics.png")
+CONFUSION_PAIR_PNG = os.path.join(EVAL_DIR, "2_confusion_mono.png")
+BEHAVIOR_SUMMARY_PNG = os.path.join(EVAL_DIR, "3_behavior_summary.png")
+ARHUD_DIFF_PNG = os.path.join(EVAL_DIR, "4_arhud_diff.png")
+STEREO_MONO_DIFF_PNG = os.path.join(EVAL_DIR, "5_stereo_mono_difference.png")
+SONYC_SAMPLE_RATE = 16000
+SONYC_RENDER_SECONDS = 10.0
+SONYC_MONO_DATASET_NAME = "SONYC-FSD-SED Mono"
+SONYC_STEREO_DATASET_NAME = "SONYC-FSD-SED Stereo"
+SONYC_RENDER_DIR = os.path.join(EVAL_DIR, "sonyc_rendered")
+SONYC_MANIFEST_CSV = os.path.join(EVAL_DIR, "sonyc_fsd_sed_manifest.csv")
+SONYC_SOURCE_SUBDIR = os.path.join("extracted", "SONYC_FSD_SED.source")
+SONYC_TEST_ANNOTATION_SUBDIR = os.path.join("extracted", "SONYC_FSD_SED_add_test.annotations", "test_past_year")
+SONYC_VOCAB_FILENAME = "vocab.json"
+SONYC_LABEL_MAP = {
+    "Shatter": "glass_break",
+    "Crack": "glass_break",
+    "Ringtone": "phone_ring",
+    "Knock": "door_knock",
+    "Doorbell": "alarms_buzzer",
+    "Microwave_oven": "alarms_buzzer",
+    "Fireworks": "explosion_gunshot",
+    "Gunshot_and_gunfire": "explosion_gunshot",
+    "Boom": "explosion_gunshot",
+    "Meow": "cat",
+    "Bark": "dog",
+    "Subway_and_metro_and_underground": "rail",
+    "Wind": "wind_rain",
+    "Male_speech_and_man_speaking": "speech",
+    "Female_speech_and_woman_speaking": "speech",
+    "Child_speech_and_kid_speaking": "speech",
+    "Whispering": "speech",
+    "Speech_synthesizer": "speech",
+    "Bass_drum": "music",
+    "Hi-hat": "music",
+    "Electric_guitar": "music",
+    "Bass_guitar": "music",
+    "Harmonica": "music",
+    "Trumpet": "music",
+    "Acoustic_guitar": "music",
+    "Piano": "music",
+    "Snare_drum": "music",
+    "Bowed_string_instrument": "music",
+    "Tabla": "music",
+    "Harp": "music",
+    "Female_singing": "music",
+    "Male_singing": "music",
+    "Tambourine": "music",
+    "Crash_cymbal": "music",
+    "Drum_kit": "music",
+    "Accordion": "music",
+    "Organ": "music",
+    "Cowbell": "music",
+    "Rattle_(instrument)": "music",
+    "Gong": "music",
+}
+SONYC_LABEL_ORDER = [
+    "glass_break",
+    "alarms_buzzer",
+    "door_knock",
+    "explosion_gunshot",
+    "phone_ring",
+    "speech",
+    "music",
+    "dog",
+    "cat",
+    "rail",
+    "wind_rain",
+]
 
 OPTIONAL_METADATA_COLUMNS = [
     "participant_id",
@@ -105,6 +180,8 @@ SUMMARY_FIELDNAMES = [
     "f1",
     "topk_hit_rate",
     "decision_target_hit_rate",
+    "actionable_hud_hit_rate",
+    "non_actionable_suppression_rate",
     "raw_accuracy",
     "raw_precision",
     "raw_recall",
@@ -264,6 +341,33 @@ class CrossVariantMetrics:
 
 
 @dataclass
+class SonicEventSpec:
+    """One source event used to synthesize a SONYC-FSD-SED soundscape."""
+
+    role: str
+    raw_label: str
+    reduced_label: str | None
+    source_rel_path: str
+    source_time_s: float
+    source_duration_s: float
+    output_time_s: float
+    output_duration_s: float
+    snr_db: float
+
+
+@dataclass
+class SonicSceneSpec:
+    """One selected SONYC-FSD-SED scene with mapped labels and source events."""
+
+    clip_id: str
+    annotation_path: str
+    positive_labels: tuple[str, ...]
+    source_labels: tuple[str, ...]
+    background_event: SonicEventSpec
+    foreground_events: tuple[SonicEventSpec, ...]
+
+
+@dataclass
 class LegacyWindowOutput:
     """Legacy pipeline output for one window."""
 
@@ -293,7 +397,7 @@ class CurrentWindowOutput:
 def parse_args() -> argparse.Namespace:
     """Parse CLI arguments for one benchmark run."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--manifest", required=True, help="CSV manifest with audio_path and label columns.")
+    parser.add_argument("--manifest", required=False, help="CSV manifest with audio_path and label columns.")
     parser.add_argument(
         "--dataset-root",
         default=None,
@@ -371,13 +475,28 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--plot-path",
-        default=CLASSIFICATION_COMPARISON_PNG,
-        help="PNG path for the classification comparison chart.",
+        default=CORE_METRICS_PNG,
+        help="PNG path for the core outcome comparison chart.",
     )
     parser.add_argument(
         "--behavior-plot-path",
-        default=PIPELINE_BEHAVIOR_PNG,
-        help="PNG path for the pipeline-behavior comparison chart.",
+        default=BEHAVIOR_SUMMARY_PNG,
+        help="PNG path for the pipeline behavior summary chart.",
+    )
+    parser.add_argument(
+        "--confusion-plot-path",
+        default=CONFUSION_PAIR_PNG,
+        help="PNG path for the mono confusion comparison chart.",
+    )
+    parser.add_argument(
+        "--arhud-plot-path",
+        default=ARHUD_DIFF_PNG,
+        help="PNG path for the AR-HUD expectation chart.",
+    )
+    parser.add_argument(
+        "--stereo-mono-plot-path",
+        default=STEREO_MONO_DIFF_PNG,
+        help="PNG path for the mono-vs-stereo comparison chart.",
     )
     parser.add_argument(
         "--window-seconds",
@@ -414,7 +533,42 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Delete old PNG artifacts under the evaluation folder before writing new ones.",
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--sonyc-root",
+        default=None,
+        help="Optional SONYC-FSD-SED dataset root. When set, the manifest is built automatically.",
+    )
+    parser.add_argument(
+        "--sonyc-split",
+        default="test_past_year",
+        help="SONYC-FSD-SED split folder used under extracted annotations.",
+    )
+    parser.add_argument(
+        "--sonyc-per-label",
+        type=int,
+        default=25,
+        help="Balanced quota per mapped reduced label for SONYC scene selection.",
+    )
+    parser.add_argument(
+        "--sonyc-seed",
+        type=int,
+        default=449,
+        help="Deterministic random seed for SONYC scene selection and stereo panning.",
+    )
+    parser.add_argument(
+        "--sonyc-render-dir",
+        default=SONYC_RENDER_DIR,
+        help="Cache directory for rendered SONYC WAV files.",
+    )
+    parser.add_argument(
+        "--sonyc-manifest-out",
+        default=SONYC_MANIFEST_CSV,
+        help="Output CSV path for the generated SONYC manifest.",
+    )
+    args = parser.parse_args()
+    if not args.manifest and not args.sonyc_root:
+        parser.error("--manifest veya --sonyc-root verilmelidir.")
+    return args
 
 
 def ensure_parent_dir(path: str) -> None:
@@ -527,6 +681,406 @@ def load_label_map(path: str | None) -> dict[str, str]:
     return {str(key): str(value) for key, value in mapping.items()}
 
 
+def source_rel_path(raw_source_path: str) -> str:
+    """Convert SONYC scratch paths into repo-local relative source paths."""
+    normalized = raw_source_path.replace("\\", "/")
+    for marker in ("sonyc_background/", "fsd50k_foreground/"):
+        marker_index = normalized.find(marker)
+        if marker_index >= 0:
+            return normalized[marker_index:]
+    raise ValueError(f"Kaynak yol eslenemedi: {raw_source_path}")
+
+
+def load_sonyc_vocab(sonyc_root: str) -> list[str]:
+    """Load the SONYC-FSD-SED foreground vocabulary."""
+    vocab_path = os.path.join(sonyc_root, SONYC_VOCAB_FILENAME)
+    with open(vocab_path, "r", encoding="utf-8") as handle:
+        return list(json.load(handle))
+
+
+def iter_sonyc_annotation_paths(sonyc_root: str, split_name: str) -> list[str]:
+    """Collect all extracted SONYC annotation paths for one split."""
+    extracted_root = os.path.join(sonyc_root, "extracted", "SONYC_FSD_SED_add_test.annotations", split_name)
+    if not os.path.isdir(extracted_root):
+        raise RuntimeError(
+            f"SONYC anotasyon klasoru bulunamadi: {extracted_root}. "
+            "Lutfen add_test annotations arsivini acilmis halde tut."
+        )
+    return [str(path) for path in sorted(Path(extracted_root).glob("*.jams"))]
+
+
+def load_json(path: str) -> dict:
+    """Load one JSON/JAMS document from disk."""
+    with open(path, "r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def parse_sonyc_scene(annotation_path: str, vocab: list[str]) -> SonicSceneSpec | None:
+    """Parse one SONYC-FSD-SED JAMS file into a compact scene description."""
+    data = load_json(annotation_path)
+    events = data.get("annotations", [{}])[0].get("data", [])
+
+    background_event: SonicEventSpec | None = None
+    foreground_events: list[SonicEventSpec] = []
+    mapped_labels: list[str] = []
+    mapped_source_labels: list[str] = []
+
+    for item in events:
+        value = item.get("value", {})
+        role = str(value.get("role", ""))
+        raw_label_id = str(value.get("label", ""))
+        raw_label = raw_label_id
+        if role == "foreground" and raw_label_id.isdigit():
+            raw_index = int(raw_label_id)
+            if 0 <= raw_index < len(vocab):
+                raw_label = vocab[raw_index]
+        reduced_label = SONYC_LABEL_MAP.get(raw_label)
+
+        spec = SonicEventSpec(
+            role=role,
+            raw_label=raw_label,
+            reduced_label=reduced_label,
+            source_rel_path=source_rel_path(str(value.get("source_file", ""))),
+            source_time_s=float(value.get("source_time", 0.0) or 0.0),
+            source_duration_s=float(value.get("event_duration", item.get("duration", 0.0)) or 0.0),
+            output_time_s=float(item.get("time", 0.0) or 0.0),
+            output_duration_s=float(item.get("duration", 0.0) or 0.0),
+            snr_db=float(value.get("snr", 0.0) or 0.0),
+        )
+
+        if role == "background":
+            background_event = spec
+            continue
+
+        if role != "foreground":
+            continue
+
+        foreground_events.append(spec)
+        if reduced_label:
+            mapped_labels.append(reduced_label)
+            mapped_source_labels.append(raw_label)
+
+    if background_event is None or not mapped_labels:
+        return None
+
+    clip_id = os.path.splitext(os.path.basename(annotation_path))[0]
+    return SonicSceneSpec(
+        clip_id=clip_id,
+        annotation_path=annotation_path,
+        positive_labels=unique_labels(mapped_labels),
+        source_labels=unique_labels(mapped_source_labels),
+        background_event=background_event,
+        foreground_events=tuple(foreground_events),
+    )
+
+
+def scene_sources_exist(scene: SonicSceneSpec, source_root: str) -> bool:
+    """Check that every referenced audio file exists locally."""
+    background_path = os.path.join(source_root, scene.background_event.source_rel_path)
+    if not os.path.exists(background_path):
+        return False
+    return all(
+        os.path.exists(os.path.join(source_root, event.source_rel_path))
+        for event in scene.foreground_events
+        if event.reduced_label is not None
+    )
+
+
+def choose_sonyc_scenes(
+    scenes: list[SonicSceneSpec],
+    source_root: str,
+    per_label: int,
+    seed: int,
+) -> tuple[list[SonicSceneSpec], dict[str, int]]:
+    """Choose a balanced subset of SONYC scenes by reduced label."""
+    support = Counter(label for scene in scenes for label in scene.positive_labels)
+    labels = [label for label in SONYC_LABEL_ORDER if support[label] > 0]
+    by_label: dict[str, list[SonicSceneSpec]] = {label: [] for label in labels}
+    for scene in scenes:
+        for label in scene.positive_labels:
+            if label in by_label:
+                by_label[label].append(scene)
+
+    rng = random.Random(seed)
+    for scene_list in by_label.values():
+        rng.shuffle(scene_list)
+
+    selected_by_id: dict[str, SonicSceneSpec] = {}
+    coverage = Counter()
+    for label in sorted(labels, key=lambda item: (support[item], item)):
+        for scene in by_label[label]:
+            if coverage[label] >= per_label:
+                break
+            if scene.clip_id in selected_by_id:
+                continue
+            if not scene_sources_exist(scene, source_root):
+                continue
+            selected_by_id[scene.clip_id] = scene
+            for covered_label in scene.positive_labels:
+                coverage[covered_label] += 1
+
+    underfilled_labels = [label for label in labels if coverage[label] < per_label]
+    if underfilled_labels:
+        for label in underfilled_labels:
+            for scene in by_label[label]:
+                if coverage[label] >= per_label:
+                    break
+                if scene.clip_id in selected_by_id or not scene_sources_exist(scene, source_root):
+                    continue
+                selected_by_id[scene.clip_id] = scene
+                for covered_label in scene.positive_labels:
+                    coverage[covered_label] += 1
+
+    return sorted(selected_by_id.values(), key=lambda scene: scene.clip_id), {label: coverage[label] for label in labels}
+
+
+def stretch_to_num_samples(samples: np.ndarray, target_samples: int) -> np.ndarray:
+    """Linearly stretch a mono segment to a fixed sample count."""
+    if target_samples <= 0:
+        return np.zeros(0, dtype=np.float32)
+    if samples.size == 0:
+        return np.zeros(target_samples, dtype=np.float32)
+    if samples.size == target_samples:
+        return samples.astype(np.float32, copy=False)
+
+    source_positions = np.linspace(0.0, 1.0, num=samples.size, endpoint=False)
+    target_positions = np.linspace(0.0, 1.0, num=target_samples, endpoint=False)
+    return np.interp(target_positions, source_positions, samples).astype(np.float32, copy=False)
+
+
+def crop_or_pad(samples: np.ndarray, start_sample: int, target_samples: int) -> np.ndarray:
+    """Extract a fixed-length segment from a mono waveform."""
+    if target_samples <= 0:
+        return np.zeros(0, dtype=np.float32)
+    if start_sample >= samples.size:
+        return np.zeros(target_samples, dtype=np.float32)
+
+    segment = samples[max(start_sample, 0) : max(start_sample, 0) + target_samples]
+    if segment.size >= target_samples:
+        return segment.astype(np.float32, copy=False)
+
+    padded = np.zeros(target_samples, dtype=np.float32)
+    padded[: segment.size] = segment.astype(np.float32, copy=False)
+    return padded
+
+
+def rms(samples: np.ndarray) -> float:
+    """Compute a stable RMS value for gain matching."""
+    if samples.size == 0:
+        return 0.0
+    return float(np.sqrt(np.mean(np.square(samples.astype(np.float64))) + 1e-9))
+
+
+def deterministic_pan(scene_id: str, event_index: int, seed: int) -> float:
+    """Generate a stable left-right pan for synthetic stereo rendering."""
+    digest = hashlib.sha1(f"{scene_id}:{event_index}:{seed}".encode("utf-8")).hexdigest()
+    unit = int(digest[:8], 16) / float(0xFFFFFFFF)
+    return -0.78 + (1.56 * unit)
+
+
+def apply_pan(mono: np.ndarray, pan: float) -> np.ndarray:
+    """Pan a mono segment into stereo with constant-power gains."""
+    clipped_pan = max(-1.0, min(1.0, pan))
+    left_gain = float(np.sqrt((1.0 - clipped_pan) * 0.5))
+    right_gain = float(np.sqrt((1.0 + clipped_pan) * 0.5))
+    return np.stack([mono * left_gain, mono * right_gain], axis=1)
+
+
+def maybe_shift_channel(stereo: np.ndarray, pan: float, sample_rate: int) -> np.ndarray:
+    """Inject a tiny inter-channel delay so the spatial probe is less degenerate."""
+    if stereo.size == 0 or abs(pan) < 0.15:
+        return stereo
+
+    delay_samples = max(1, min(int(round(abs(pan) * sample_rate * 0.00025)), 6))
+    shifted = stereo.copy()
+    if pan > 0:
+        shifted[delay_samples:, 0] = shifted[:-delay_samples, 0]
+        shifted[:delay_samples, 0] = 0.0
+    else:
+        shifted[delay_samples:, 1] = shifted[:-delay_samples, 1]
+        shifted[:delay_samples, 1] = 0.0
+    return shifted
+
+
+def render_sonyc_scene(
+    scene: SonicSceneSpec,
+    source_root: str,
+    output_path: str,
+    stereo: bool,
+    seed: int,
+    cache: dict[str, np.ndarray],
+) -> None:
+    """Render one SONYC scene into a reusable WAV file."""
+    ensure_parent_dir(output_path)
+    if os.path.exists(output_path):
+        return
+
+    target_length = int(round(SONYC_RENDER_SECONDS * SONYC_SAMPLE_RATE))
+
+    def load_source_mono(source_rel_path: str) -> np.ndarray:
+        cache_key = source_rel_path
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        absolute_path = os.path.join(source_root, source_rel_path)
+        if sf is not None:
+            samples, sample_rate = sf.read(absolute_path, always_2d=True, dtype="float32")
+            mono = np.mean(np.asarray(samples, dtype=np.float32), axis=1)
+            input_sr = int(sample_rate)
+        else:
+            raw_audio = tf.io.read_file(absolute_path)
+            waveform, sample_rate = tf.audio.decode_wav(raw_audio, desired_channels=1)
+            mono = waveform.numpy().reshape(-1).astype(np.float32, copy=False)
+            input_sr = int(sample_rate.numpy())
+        if input_sr != SONYC_SAMPLE_RATE:
+            mono = resample_linear(mono, input_sr, SONYC_SAMPLE_RATE)
+        cache[cache_key] = mono
+        return mono
+
+    background_wave = load_source_mono(scene.background_event.source_rel_path)
+    background_start = int(round(scene.background_event.source_time_s * SONYC_SAMPLE_RATE))
+    background_clip = crop_or_pad(background_wave, background_start, target_length)
+    background_rms = max(rms(background_clip), 1e-4)
+
+    if stereo:
+        mix = np.stack([background_clip, background_clip], axis=1)
+    else:
+        mix = background_clip.copy()
+
+    mapped_events = [event for event in scene.foreground_events if event.reduced_label is not None]
+    for event_index, event in enumerate(mapped_events):
+        source_wave = load_source_mono(event.source_rel_path)
+        source_start = int(round(event.source_time_s * SONYC_SAMPLE_RATE))
+        source_length = max(1, int(round(event.source_duration_s * SONYC_SAMPLE_RATE)))
+        source_segment = crop_or_pad(source_wave, source_start, source_length)
+        event_length = max(1, int(round(event.output_duration_s * SONYC_SAMPLE_RATE)))
+        rendered_segment = stretch_to_num_samples(source_segment, event_length)
+
+        event_rms = max(rms(rendered_segment), 1e-4)
+        target_event_rms = background_rms * (10.0 ** (event.snr_db / 20.0))
+        gain = target_event_rms / event_rms
+        rendered_segment = rendered_segment * gain
+
+        start_index = int(round(event.output_time_s * SONYC_SAMPLE_RATE))
+        if start_index >= target_length:
+            continue
+        end_index = min(start_index + rendered_segment.size, target_length)
+        rendered_segment = rendered_segment[: end_index - start_index]
+
+        if stereo:
+            panned = apply_pan(rendered_segment, deterministic_pan(scene.clip_id, event_index, seed))
+            panned = maybe_shift_channel(panned, deterministic_pan(scene.clip_id, event_index, seed), SONYC_SAMPLE_RATE)
+            mix[start_index:end_index] += panned
+        else:
+            mix[start_index:end_index] += rendered_segment
+
+    peak = float(np.max(np.abs(mix))) if mix.size else 0.0
+    if peak > 0.98:
+        mix = mix / peak * 0.95
+
+    tensor = tf.convert_to_tensor(mix.reshape((-1, 2 if stereo else 1)), dtype=tf.float32)
+    encoded = tf.audio.encode_wav(tensor, sample_rate=SONYC_SAMPLE_RATE)
+    tf.io.write_file(output_path, encoded)
+
+
+def build_sonyc_manifest(args: argparse.Namespace) -> str:
+    """Render a balanced SONYC benchmark subset and write a manifest CSV."""
+    sonyc_root = os.path.abspath(args.sonyc_root)
+    source_root = os.path.join(sonyc_root, SONYC_SOURCE_SUBDIR)
+    if not os.path.isdir(source_root):
+        raise RuntimeError(
+            f"SONYC source klasoru bulunamadi: {source_root}. "
+            "Kaynak arsivin en azindan kullanacagimiz dosyalari acilmis olmali."
+        )
+
+    print("[SONYC] Vocab ve anotasyonlar okunuyor...")
+    vocab = load_sonyc_vocab(sonyc_root)
+    annotation_paths = iter_sonyc_annotation_paths(sonyc_root, args.sonyc_split)
+    scene_specs = []
+    for index, annotation_path in enumerate(annotation_paths, start=1):
+        scene = parse_sonyc_scene(annotation_path, vocab)
+        if scene is not None:
+            scene_specs.append(scene)
+        if index % 10000 == 0:
+            print(f"[SONYC] {index}/{len(annotation_paths)} anotasyon tarandi.")
+
+    selected_scenes, coverage = choose_sonyc_scenes(
+        scenes=scene_specs,
+        source_root=source_root,
+        per_label=args.sonyc_per_label,
+        seed=args.sonyc_seed,
+    )
+    if not selected_scenes:
+        raise RuntimeError("SONYC benchmarki icin kullanilabilir hic sahne secilemedi.")
+
+    print(f"[SONYC] Secilen baz sahne sayisi: {len(selected_scenes)}")
+    for label in SONYC_LABEL_ORDER:
+        if label in coverage:
+            print(f"[SONYC] {label:<20} -> {coverage[label]}")
+
+    render_root = os.path.abspath(args.sonyc_render_dir)
+    mono_dir = os.path.join(render_root, "mono")
+    stereo_dir = os.path.join(render_root, "stereo")
+    os.makedirs(mono_dir, exist_ok=True)
+    os.makedirs(stereo_dir, exist_ok=True)
+    source_cache: dict[str, np.ndarray] = {}
+
+    manifest_path = os.path.abspath(args.sonyc_manifest_out)
+    ensure_parent_dir(manifest_path)
+    with open(manifest_path, "w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=[
+                "clip_id",
+                "audio_path",
+                "label",
+                "labels",
+                "source_label",
+                "dataset",
+                "environment",
+                "sensor",
+                "channels",
+            ],
+        )
+        writer.writeheader()
+
+        total_renders = len(selected_scenes) * 2
+        render_index = 0
+        for scene in selected_scenes:
+            for stereo_flag, dataset_name, output_dir, channels in (
+                (False, SONYC_MONO_DATASET_NAME, mono_dir, "1"),
+                (True, SONYC_STEREO_DATASET_NAME, stereo_dir, "2"),
+            ):
+                render_index += 1
+                output_path = os.path.join(output_dir, f"{scene.clip_id}.wav")
+                render_sonyc_scene(
+                    scene=scene,
+                    source_root=source_root,
+                    output_path=output_path,
+                    stereo=stereo_flag,
+                    seed=args.sonyc_seed,
+                    cache=source_cache,
+                )
+                writer.writerow(
+                    {
+                        "clip_id": f"{scene.clip_id}_{'stereo' if stereo_flag else 'mono'}",
+                        "audio_path": output_path,
+                        "label": scene.positive_labels[0],
+                        "labels": format_labels(scene.positive_labels),
+                        "source_label": format_labels(scene.source_labels),
+                        "dataset": dataset_name,
+                        "environment": "urban_synthetic",
+                        "sensor": "sonyc_fsd_sed",
+                        "channels": channels,
+                    }
+                )
+                if render_index == 1 or render_index % 25 == 0 or render_index == total_renders:
+                    print(f"[SONYC] Render {render_index}/{total_renders} tamamlandi.")
+
+    return manifest_path
+
+
 def build_sample_records(args: argparse.Namespace, label_map: dict[str, str]) -> list[SampleRecord]:
     """Read the manifest and normalize all sample rows into one structure."""
     manifest_path = os.path.abspath(args.manifest)
@@ -598,12 +1152,17 @@ def build_sample_records(args: argparse.Namespace, label_map: dict[str, str]) ->
 
 def load_audio_frames(path: str) -> tuple[np.ndarray, int]:
     """Load WAV audio and preserve the original channel count."""
-    raw_audio = tf.io.read_file(path)
-    waveform, sample_rate = tf.audio.decode_wav(raw_audio)
-    frames = ensure_frame_major(waveform.numpy().astype(np.float32, copy=False))
+    if sf is not None:
+        samples, sample_rate = sf.read(path, always_2d=True, dtype="float32")
+        frames = ensure_frame_major(np.asarray(samples, dtype=np.float32))
+    else:
+        raw_audio = tf.io.read_file(path)
+        waveform, sample_rate = tf.audio.decode_wav(raw_audio)
+        frames = ensure_frame_major(waveform.numpy().astype(np.float32, copy=False))
+        sample_rate = int(sample_rate.numpy())
     if frames.size == 0:
         raise RuntimeError(f"Bos ses dosyasi: {path}")
-    return frames, int(sample_rate.numpy())
+    return frames, int(sample_rate)
 
 
 def iterate_windows(frames: np.ndarray, sample_rate: int, window_seconds: float, hop_seconds: float):
@@ -1050,7 +1609,7 @@ def plot_confusion_matrix(path: str, labels: list[str], matrix: np.ndarray, titl
     """Render a confusion matrix heatmap."""
     ensure_parent_dir(path)
     fig, ax = plt.subplots(figsize=(max(7, len(labels) * 0.6), max(6, len(labels) * 0.55)))
-    image = ax.imshow(matrix, cmap="YlOrRd")
+    image = ax.imshow(matrix, cmap="Blues")
     plt.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
     ax.set_title(title)
     ax.set_xlabel("Tahmin etiketi")
@@ -1241,6 +1800,253 @@ def plot_multilabel_class_report(summary_rows: list[dict[str, str | float | int]
         frameon=False,
     )
     fig.suptitle("Multilabel sinif bazli rapor", fontsize=16)
+    ensure_parent_dir(plot_path)
+    plt.savefig(plot_path, dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+
+def overall_row_for(
+    summary_rows: list[dict[str, str | float | int]],
+    dataset_name: str,
+    pipeline_variant: str,
+) -> dict[str, str | float | int] | None:
+    """Find one overall row for the given dataset and variant."""
+    return next(
+        (
+            row
+            for row in summary_rows
+            if row.get("metric_scope") == "overall"
+            and str(row.get("dataset_name")) == dataset_name
+            and str(row.get("pipeline_variant")) == pipeline_variant
+        ),
+        None,
+    )
+
+
+def plot_core_run_summary(summary_rows: list[dict[str, str | float | int]], plot_path: str) -> None:
+    """Plot the main decision metrics for the mono benchmark."""
+    legacy_row = overall_row_for(summary_rows, SONYC_MONO_DATASET_NAME, "old_pipeline")
+    current_row = overall_row_for(summary_rows, SONYC_MONO_DATASET_NAME, "current_pipeline")
+    if legacy_row is None or current_row is None:
+        return
+
+    metrics = [
+        ("Raw Top-1", "accuracy"),
+        ("Raw Top-3", "topk_hit_rate"),
+        ("Macro F1", "f1"),
+        ("HUD Hit", "decision_target_hit_rate"),
+        ("Aksiyon Hit", "actionable_hud_hit_rate"),
+    ]
+    labels = [item[0] for item in metrics]
+    old_values = [float(legacy_row[item[1]]) for item in metrics]
+    new_values = [float(current_row[item[1]]) for item in metrics]
+
+    x = np.arange(len(labels))
+    width = 0.34
+    fig, ax = plt.subplots(figsize=(11, 5.5))
+    old_bars = ax.bar(x - width / 2, old_values, width=width, color="#8aa4d6", label="Eski pipeline")
+    new_bars = ax.bar(x + width / 2, new_values, width=width, color="#2f6fed", label="Yeni pipeline")
+
+    ax.set_ylim(0.0, 1.05)
+    ax.set_ylabel("Skor")
+    ax.set_title("Temel sonuc ozeti")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.grid(True, axis="y", linestyle="--", alpha=0.25)
+    ax.legend(frameon=False)
+    for bars in (old_bars, new_bars):
+        for bar in bars:
+            ax.text(bar.get_x() + bar.get_width() / 2.0, bar.get_height() + 0.02, f"{bar.get_height():.2f}", ha="center", va="bottom", fontsize=9)
+
+    plt.tight_layout()
+    ensure_parent_dir(plot_path)
+    plt.savefig(plot_path, dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+
+def build_decision_confusion(clip_results: list[ClipResult]) -> tuple[list[str], np.ndarray]:
+    """Build a compact confusion matrix in the HUD decision space."""
+    labels = []
+    for result in clip_results:
+        labels.append(primary_hud_target(result.sample))
+        labels.append(result.predicted_label)
+    label_order = [label for label in ("glass_break", "alarms_buzzer", "door_knock", "explosion_gunshot", "idle", "other", "ood", "silence") if label in labels]
+    index_by_label = {label: index for index, label in enumerate(label_order)}
+    matrix = np.zeros((len(label_order), len(label_order)), dtype=np.int32)
+
+    for result in clip_results:
+        true_label = primary_hud_target(result.sample)
+        pred_label = result.predicted_label
+        if true_label not in index_by_label or pred_label not in index_by_label:
+            continue
+        matrix[index_by_label[true_label], index_by_label[pred_label]] += 1
+    return label_order, matrix
+
+
+def plot_confusion_pair(
+    legacy_results: list[ClipResult],
+    current_results: list[ClipResult],
+    plot_path: str,
+) -> None:
+    """Plot old/new decision-space confusion matrices side by side."""
+    legacy_labels, legacy_matrix = build_decision_confusion(legacy_results)
+    current_labels, current_matrix = build_decision_confusion(current_results)
+    labels = list(dict.fromkeys([*legacy_labels, *current_labels]))
+    if not labels:
+        return
+
+    def align_matrix(matrix_labels: list[str], matrix: np.ndarray) -> np.ndarray:
+        aligned = np.zeros((len(labels), len(labels)), dtype=np.int32)
+        lookup = {label: idx for idx, label in enumerate(matrix_labels)}
+        for true_label in matrix_labels:
+            for pred_label in matrix_labels:
+                aligned[labels.index(true_label), labels.index(pred_label)] = matrix[lookup[true_label], lookup[pred_label]]
+        return aligned
+
+    legacy_aligned = align_matrix(legacy_labels, legacy_matrix)
+    current_aligned = align_matrix(current_labels, current_matrix)
+    vmax = max(int(legacy_aligned.max()), int(current_aligned.max()), 1)
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5.8), constrained_layout=True)
+    for ax, matrix, title in (
+        (axes[0], legacy_aligned, "Eski pipeline"),
+        (axes[1], current_aligned, "Yeni pipeline"),
+    ):
+        image = ax.imshow(matrix, cmap="Blues", vmin=0, vmax=vmax)
+        ax.set_title(title)
+        ax.set_xlabel("Tahmin")
+        ax.set_ylabel("Gercek")
+        ax.set_xticks(np.arange(len(labels)))
+        ax.set_xticklabels(labels, rotation=35, ha="right")
+        ax.set_yticks(np.arange(len(labels)))
+        ax.set_yticklabels(labels)
+        for row_index in range(matrix.shape[0]):
+            for col_index in range(matrix.shape[1]):
+                value = matrix[row_index, col_index]
+                if value > 0:
+                    ax.text(col_index, row_index, str(value), ha="center", va="center", fontsize=8, color="#0f172a")
+
+    fig.colorbar(image, ax=axes.ravel().tolist(), fraction=0.03, pad=0.02)
+    fig.suptitle("Mono karar uzayinda karisiklik matrisi", fontsize=15)
+    ensure_parent_dir(plot_path)
+    plt.savefig(plot_path, dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_behavior_run_summary(summary_rows: list[dict[str, str | float | int]], plot_path: str) -> None:
+    """Plot the stability metrics that matter for the UX side."""
+    legacy_row = overall_row_for(summary_rows, SONYC_MONO_DATASET_NAME, "old_pipeline")
+    current_row = overall_row_for(summary_rows, SONYC_MONO_DATASET_NAME, "current_pipeline")
+    if legacy_row is None or current_row is None:
+        return
+
+    metrics = [
+        ("Flapping/dk", "flapping_transitions_per_min"),
+        ("Gate toggle/dk", "speech_gate_toggles_per_min"),
+        ("Yanlis alarm/dk", "false_alerts_per_minute"),
+        ("Other orani", "other_rate"),
+    ]
+    labels = [item[0] for item in metrics]
+    old_values = [float(legacy_row[item[1]]) for item in metrics]
+    new_values = [float(current_row[item[1]]) for item in metrics]
+
+    x = np.arange(len(labels))
+    width = 0.34
+    fig, ax = plt.subplots(figsize=(11, 5.5))
+    old_bars = ax.bar(x - width / 2, old_values, width=width, color="#b7c5e0", label="Eski pipeline")
+    new_bars = ax.bar(x + width / 2, new_values, width=width, color="#4c84ff", label="Yeni pipeline")
+
+    ax.set_title("Davranis ve stabilite ozeti")
+    ax.set_ylabel("Deger")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.grid(True, axis="y", linestyle="--", alpha=0.25)
+    ax.legend(frameon=False)
+    ymax = max(max(old_values), max(new_values), 1.0)
+    ax.set_ylim(0.0, ymax * 1.22)
+    for bars in (old_bars, new_bars):
+        for bar in bars:
+            ax.text(bar.get_x() + bar.get_width() / 2.0, bar.get_height() + ymax * 0.03, f"{bar.get_height():.2f}", ha="center", va="bottom", fontsize=9)
+
+    plt.tight_layout()
+    ensure_parent_dir(plot_path)
+    plt.savefig(plot_path, dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_arhud_summary(summary_rows: list[dict[str, str | float | int]], plot_path: str) -> None:
+    """Plot the research-facing HUD expectations in one compact figure."""
+    legacy_row = overall_row_for(summary_rows, SONYC_MONO_DATASET_NAME, "old_pipeline")
+    current_row = overall_row_for(summary_rows, SONYC_MONO_DATASET_NAME, "current_pipeline")
+    if legacy_row is None or current_row is None:
+        return
+
+    metrics = [
+        ("Aksiyon yakalama", "actionable_hud_hit_rate"),
+        ("Notr bastirma", "non_actionable_suppression_rate"),
+        ("Genel HUD hit", "decision_target_hit_rate"),
+    ]
+    labels = [item[0] for item in metrics]
+    old_values = [float(legacy_row[item[1]]) for item in metrics]
+    new_values = [float(current_row[item[1]]) for item in metrics]
+
+    x = np.arange(len(labels))
+    width = 0.34
+    fig, ax = plt.subplots(figsize=(10, 5.2))
+    old_bars = ax.bar(x - width / 2, old_values, width=width, color="#c3d2ea", label="Eski pipeline")
+    new_bars = ax.bar(x + width / 2, new_values, width=width, color="#2563eb", label="Yeni pipeline")
+
+    ax.set_ylim(0.0, 1.05)
+    ax.set_title("AR-HUD farki")
+    ax.set_ylabel("Skor")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.grid(True, axis="y", linestyle="--", alpha=0.25)
+    ax.legend(frameon=False)
+    for bars in (old_bars, new_bars):
+        for bar in bars:
+            ax.text(bar.get_x() + bar.get_width() / 2.0, bar.get_height() + 0.02, f"{bar.get_height():.2f}", ha="center", va="bottom", fontsize=9)
+
+    plt.tight_layout()
+    ensure_parent_dir(plot_path)
+    plt.savefig(plot_path, dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_stereo_mono_summary(summary_rows: list[dict[str, str | float | int]], plot_path: str) -> None:
+    """Compare mono preservation and stereo readiness for the new pipeline only."""
+    mono_row = overall_row_for(summary_rows, SONYC_MONO_DATASET_NAME, "current_pipeline")
+    stereo_row = overall_row_for(summary_rows, SONYC_STEREO_DATASET_NAME, "current_pipeline")
+    if mono_row is None or stereo_row is None:
+        return
+
+    metrics = [
+        ("Raw Top-1", "accuracy"),
+        ("HUD Hit", "decision_target_hit_rate"),
+        ("Aksiyon Hit", "actionable_hud_hit_rate"),
+        ("Spatial aktif", "stereo_spatial_active_rate"),
+    ]
+    mono_values = [float(mono_row[item[1]] or 0.0) for item in metrics]
+    stereo_values = [float(stereo_row[item[1]] or 0.0) for item in metrics]
+    labels = [item[0] for item in metrics]
+
+    x = np.arange(len(labels))
+    width = 0.34
+    fig, ax = plt.subplots(figsize=(10.5, 5.2))
+    mono_bars = ax.bar(x - width / 2, mono_values, width=width, color="#93c5fd", label="Mono render")
+    stereo_bars = ax.bar(x + width / 2, stereo_values, width=width, color="#1d4ed8", label="Sentetik stereo render")
+    ax.set_ylim(0.0, 1.05)
+    ax.set_title("Mono - stereo farki")
+    ax.set_ylabel("Skor")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.grid(True, axis="y", linestyle="--", alpha=0.25)
+    ax.legend(frameon=False)
+    for bars in (mono_bars, stereo_bars):
+        for bar in bars:
+            ax.text(bar.get_x() + bar.get_width() / 2.0, bar.get_height() + 0.02, f"{bar.get_height():.2f}", ha="center", va="bottom", fontsize=9)
+
+    plt.tight_layout()
     ensure_parent_dir(plot_path)
     plt.savefig(plot_path, dpi=180, bbox_inches="tight")
     plt.close(fig)
@@ -1728,6 +2534,39 @@ def decision_target_hit(result: ClipResult) -> bool:
     return result.predicted_label in decision_target_set(result.sample)
 
 
+def actionable_target_labels(sample: SampleRecord) -> set[str]:
+    """Return only the actionable target labels for one sample."""
+    return decision_target_set(sample) & current_config.ACTIONABLE_LABELS
+
+
+def is_non_actionable_only(sample: SampleRecord) -> bool:
+    """Return whether the sample should collapse to a neutral HUD state."""
+    targets = decision_target_set(sample)
+    return not actionable_target_labels(sample) and bool(targets) and targets.issubset(NEUTRAL_OUTPUT_LABELS)
+
+
+def actionable_decision_hit(result: ClipResult) -> bool:
+    """Return whether the predicted HUD label hits an actionable target."""
+    return result.predicted_label in actionable_target_labels(result.sample)
+
+
+def neutral_suppression_hit(result: ClipResult) -> bool:
+    """Return whether the decision output stays in the intended neutral state."""
+    return result.predicted_label in decision_target_set(result.sample)
+
+
+def primary_hud_target(sample: SampleRecord) -> str:
+    """Choose one readable decision target label for compact confusion plots."""
+    actionable_targets = actionable_target_labels(sample)
+    if actionable_targets:
+        return sorted(actionable_targets)[0]
+    targets = decision_target_set(sample)
+    for candidate in ("idle", "other", "silence", "ood"):
+        if candidate in targets:
+            return candidate
+    return sorted(targets)[0] if targets else collapse_label_for_decision(sample.label)
+
+
 def multilabel_sample_prf(result: ClipResult) -> tuple[float, float, float]:
     """Compute sample-wise multilabel precision/recall/F1 from the raw top-k set."""
     positives = target_labels_for_sample(result.sample)
@@ -1829,6 +2668,8 @@ def summarize_variant_rows(
                 "f1": f1,
                 "topk_hit_rate": "",
                 "decision_target_hit_rate": "",
+                "actionable_hud_hit_rate": "",
+                "non_actionable_suppression_rate": "",
                 "raw_accuracy": safe_div(primary_tp, primary_true_counter[label]),
                 "raw_precision": primary_precision,
                 "raw_recall": primary_recall,
@@ -1934,6 +2775,9 @@ def summarize_variant_rows(
         sample_recalls.append(recall)
         sample_f1s.append(f1)
 
+    actionable_results = [result for result in clip_results if actionable_target_labels(result.sample)]
+    non_actionable_results = [result for result in clip_results if is_non_actionable_only(result.sample)]
+
     overall_row = {
         "timestamp_utc": timestamp_iso,
         "run_id": run_id,
@@ -1951,6 +2795,14 @@ def summarize_variant_rows(
         "f1": safe_div(sum(multilabel_macro_f1_values), len(multilabel_macro_f1_values)),
         "topk_hit_rate": safe_div(sum(1 for result in clip_results if raw_topk_hit(result)), total),
         "decision_target_hit_rate": safe_div(sum(1 for result in clip_results if decision_target_hit(result)), total),
+        "actionable_hud_hit_rate": safe_div(
+            sum(1 for result in actionable_results if actionable_decision_hit(result)),
+            len(actionable_results),
+        ),
+        "non_actionable_suppression_rate": safe_div(
+            sum(1 for result in non_actionable_results if neutral_suppression_hit(result)),
+            len(non_actionable_results),
+        ),
         "raw_accuracy": safe_div(sum(1 for result in clip_results if result.raw_predicted_label == result.sample.label), total),
         "raw_precision": safe_div(sum(primary_precision_values), len(primary_precision_values)),
         "raw_recall": safe_div(sum(primary_recall_values), len(primary_recall_values)),
@@ -1995,7 +2847,10 @@ def export_dataset_artifacts(
     ece: float,
     calibration_bins: list[dict[str, float]],
 ) -> list[str]:
-    """Write per-dataset artifacts such as confusion matrices and reliability plots."""
+    """Write lightweight per-dataset artifacts for later drill-down."""
+    _ = window_records
+    _ = ece
+    _ = calibration_bins
     dataset_slug = slugify(dataset_name)
     model_slug = slugify(model_label)
     variant_slug = slugify(pipeline_variant)
@@ -2003,26 +2858,9 @@ def export_dataset_artifacts(
 
     labels, matrix = build_confusion_matrix(clip_results)
     confusion_csv = f"{artifact_prefix}_confusion_matrix.csv"
-    confusion_png = f"{artifact_prefix}_confusion_matrix.png"
-    reliability_png = f"{artifact_prefix}_reliability_curve.png"
-    states_png = f"{artifact_prefix}_state_distribution.png"
 
     write_confusion_matrix_csv(confusion_csv, labels, matrix)
-    plot_confusion_matrix(
-        confusion_png,
-        labels,
-        matrix,
-        f"{dataset_name} - {model_label} [{pipeline_variant}] - primary label confusion",
-    )
-    plot_reliability_curve(
-        reliability_png,
-        calibration_bins,
-        ece,
-        f"{dataset_name} - {model_label} [{pipeline_variant}]",
-    )
-    plot_state_distribution(states_png, window_records, f"{dataset_name} - {pipeline_variant} durum dagilimi")
-
-    return [confusion_csv, confusion_png, reliability_png, states_png]
+    return [confusion_csv]
 
 
 def print_run_summary(rows: Iterable[dict[str, str | float | int]]) -> None:
@@ -2038,6 +2876,8 @@ def print_run_summary(rows: Iterable[dict[str, str | float | int]]) -> None:
         print(f"Raw Top-K hit           : {float(overall_row['topk_hit_rate']):.4f}")
         print(f"Multilabel Macro F1@K   : {float(overall_row['f1']):.4f}")
         print(f"HUD karar hit           : {float(overall_row['decision_target_hit_rate']):.4f}")
+        print(f"Aksiyon HUD hit         : {float(overall_row['actionable_hud_hit_rate']):.4f}")
+        print(f"Notr bastirma orani     : {float(overall_row['non_actionable_suppression_rate']):.4f}")
         print(f"Primary-label accuracy  : {float(overall_row['raw_accuracy']):.4f}")
         print(f"ECE                     : {float(overall_row['ece']):.4f}")
         print(f"Flapping / dakika       : {float(overall_row['flapping_transitions_per_min']):.4f}")
@@ -2061,6 +2901,13 @@ def main() -> None:
         removed_pngs = clean_old_png_artifacts(EVAL_DIR)
         if removed_pngs:
             print(f"[TEMIZLIK] Silinen eski PNG sayisi: {len(removed_pngs)}")
+
+    if args.sonyc_root:
+        print("[SONYC] Otomatik manifest ve render seti hazirlaniyor...")
+        args.manifest = build_sonyc_manifest(args)
+        if not args.dataset_name:
+            args.dataset_name = "sonyc_fsd_sed"
+        print(f"[SONYC] Manifest hazir: {os.path.abspath(args.manifest)}")
 
     print("[EVAL] Manifest okunuyor...")
     samples = build_sample_records(args, label_map)
@@ -2132,17 +2979,22 @@ def main() -> None:
     append_summary_rows(args.summary_csv, rows_to_append)
     append_prediction_rows(args.predictions_csv, window_records, run_id, args.model_label, run_timestamp_unix)
 
-    summary_history = read_summary_rows(args.summary_csv)
-    plot_history(summary_history, args.plot_path)
-    plot_behavior_history(summary_history, args.behavior_plot_path)
-    plot_multilabel_class_report(rows_to_append, MULTILABEL_CLASS_REPORT_PNG)
+    plot_core_run_summary(rows_to_append, args.plot_path)
+    plot_behavior_run_summary(rows_to_append, args.behavior_plot_path)
+    plot_arhud_summary(rows_to_append, args.arhud_plot_path)
+    plot_stereo_mono_summary(rows_to_append, args.stereo_mono_plot_path)
+    mono_legacy_results = grouped_clips.get((SONYC_MONO_DATASET_NAME, args.legacy_variant_label), [])
+    mono_current_results = grouped_clips.get((SONYC_MONO_DATASET_NAME, args.current_variant_label), [])
+    plot_confusion_pair(mono_legacy_results, mono_current_results, args.confusion_plot_path)
     print_run_summary(rows_to_append)
 
     print(f"[KAYIT] Ozet CSV             : {os.path.abspath(args.summary_csv)}")
     print(f"[KAYIT] Detay pencere CSV    : {os.path.abspath(args.predictions_csv)}")
-    print(f"[KAYIT] Siniflama grafigi    : {os.path.abspath(args.plot_path)}")
-    print(f"[KAYIT] Davranis grafigi     : {os.path.abspath(args.behavior_plot_path)}")
-    print(f"[KAYIT] Sinif bazli rapor    : {os.path.abspath(MULTILABEL_CLASS_REPORT_PNG)}")
+    print(f"[KAYIT] Genel ozet png       : {os.path.abspath(args.plot_path)}")
+    print(f"[KAYIT] Confusion png        : {os.path.abspath(args.confusion_plot_path)}")
+    print(f"[KAYIT] Davranis png         : {os.path.abspath(args.behavior_plot_path)}")
+    print(f"[KAYIT] AR-HUD png           : {os.path.abspath(args.arhud_plot_path)}")
+    print(f"[KAYIT] Stereo-mono png      : {os.path.abspath(args.stereo_mono_plot_path)}")
     print(f"[KAYIT] Run ID               : {run_id}")
     for artifact_path in artifact_paths:
         print(f"[KAYIT] Artefakt             : {os.path.abspath(artifact_path)}")
