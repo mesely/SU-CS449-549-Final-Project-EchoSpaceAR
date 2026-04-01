@@ -10,9 +10,9 @@ What it compares:
   - current pipeline with decision layer + stereo side-channel
 
 What it measures:
-  - overall and per-class accuracy / precision / recall / F1
-  - raw classifier consistency for mono input
-  - confusion matrix and calibration (ECE)
+  - multilabel raw-event hit rate and Macro-F1@K
+  - primary-label confusion and calibration (ECE)
+  - decision-target hit rate for the HUD layer
   - flapping / label transitions per minute
   - false alerts per minute
   - speech-gate stability
@@ -21,7 +21,7 @@ What it measures:
 
 Required manifest columns:
   - audio_path
-  - label
+  - either `labels` or `label`
 
 Optional manifest columns:
   - clip_id
@@ -40,6 +40,8 @@ Optional manifest columns:
   - user_response_time
 
 The script expects WAV files. Mono and stereo WAV files are both supported.
+FSD50K-style multilabel manifests are supported through a semicolon-separated
+`labels` column after mapping labels into the reduced EchoSpace label set.
 """
 
 from __future__ import annotations
@@ -72,6 +74,7 @@ SUMMARY_CSV = os.path.join(EVAL_DIR, "model_benchmark_results.csv")
 PREDICTIONS_CSV = os.path.join(EVAL_DIR, "model_benchmark_predictions.csv")
 CLASSIFICATION_COMPARISON_PNG = os.path.join(EVAL_DIR, "model_benchmark_comparison.png")
 PIPELINE_BEHAVIOR_PNG = os.path.join(EVAL_DIR, "pipeline_behavior_comparison.png")
+MULTILABEL_CLASS_REPORT_PNG = os.path.join(EVAL_DIR, "multilabel_class_report.png")
 
 OPTIONAL_METADATA_COLUMNS = [
     "participant_id",
@@ -84,6 +87,7 @@ OPTIONAL_METADATA_COLUMNS = [
 ]
 
 NEUTRAL_OUTPUT_LABELS = {"silence", "idle", "other", "ood", "Silence"}
+DEFAULT_LABEL_SEPARATOR = ";"
 SUMMARY_FIELDNAMES = [
     "timestamp_utc",
     "run_id",
@@ -99,6 +103,8 @@ SUMMARY_FIELDNAMES = [
     "precision",
     "recall",
     "f1",
+    "topk_hit_rate",
+    "decision_target_hit_rate",
     "raw_accuracy",
     "raw_precision",
     "raw_recall",
@@ -138,16 +144,22 @@ PREDICTION_FIELDNAMES = [
     "audio_path",
     "source_label",
     "target_label",
+    "target_labels",
+    "decision_target_labels",
     "raw_predicted_label",
     "raw_predicted_confidence",
+    "raw_top3_labels",
     "dominant_label",
     "dominant_confidence",
+    "dominant_top3_labels",
     "window_index",
     "window_start_s",
     "window_end_s",
     "duration_seconds",
     "is_correct",
     "is_raw_correct",
+    "matches_any_target",
+    "matches_decision_target",
     "input_channels",
     "spatial_mode",
     "spatial_direction",
@@ -185,6 +197,8 @@ class SampleRecord:
     label: str
     source_label: str
     dataset_name: str
+    positive_labels: tuple[str, ...] = ()
+    decision_target_labels: tuple[str, ...] = ()
     metadata: dict[str, str] = field(default_factory=dict)
     onset_time: float | None = None
     prediction_time: float | None = None
@@ -203,8 +217,10 @@ class WindowRecord:
     window_end_s: float
     raw_predicted_label: str
     raw_predicted_confidence: float
+    raw_top3: list[tuple[str, float]]
     dominant_label: str
     dominant_confidence: float
+    dominant_top3: list[tuple[str, float]]
     decision_state: str
     decision_priority: str
     speech_prob: float
@@ -234,6 +250,7 @@ class ClipResult:
     raw_predicted_label: str
     raw_predicted_confidence: float
     raw_top3: list[tuple[str, float]]
+    raw_eval_labels: tuple[str, ...]
     duration_seconds: float
     windows: list[WindowRecord]
 
@@ -310,7 +327,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--label-column",
         default="label",
-        help="Manifest column containing the target label.",
+        help="Fallback manifest column containing the primary target label.",
+    )
+    parser.add_argument(
+        "--labels-column",
+        default="labels",
+        help="Optional manifest column containing semicolon-separated multilabel targets.",
+    )
+    parser.add_argument(
+        "--label-separator",
+        default=DEFAULT_LABEL_SEPARATOR,
+        help="Separator used by the multilabel target column.",
     )
     parser.add_argument(
         "--clip-id-column",
@@ -376,6 +403,17 @@ def parse_args() -> argparse.Namespace:
         default=10,
         help="Number of bins used to compute expected calibration error.",
     )
+    parser.add_argument(
+        "--raw-topk",
+        type=int,
+        default=3,
+        help="Top-K raw labels used for multilabel hit/F1 evaluation.",
+    )
+    parser.add_argument(
+        "--clear-old-pngs",
+        action="store_true",
+        help="Delete old PNG artifacts under the evaluation folder before writing new ones.",
+    )
     return parser.parse_args()
 
 
@@ -397,6 +435,74 @@ def slugify(value: str) -> str:
 def safe_div(numerator: float, denominator: float) -> float:
     """Avoid repeated zero-division checks in metric calculations."""
     return numerator / denominator if denominator else 0.0
+
+
+def unique_labels(labels: Iterable[str]) -> tuple[str, ...]:
+    """Deduplicate labels while preserving their original order."""
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for label in labels:
+        if label and label not in seen:
+            seen.add(label)
+            ordered.append(label)
+    return tuple(ordered)
+
+
+def split_label_cell(raw_value: str, separator: str) -> tuple[str, ...]:
+    """Parse a label cell into a stable tuple of labels."""
+    if not raw_value:
+        return ()
+
+    normalized = raw_value.replace("|", separator)
+    if separator != ",":
+        normalized = normalized.replace(",", separator)
+    parts = [item.strip() for item in normalized.split(separator)]
+    return unique_labels(part for part in parts if part)
+
+
+def format_labels(labels: Iterable[str]) -> str:
+    """Serialize labels into a compact semicolon-separated string."""
+    return DEFAULT_LABEL_SEPARATOR.join(unique_labels(labels))
+
+
+def collapse_label_for_decision(label: str) -> str:
+    """Map raw event labels into the HUD-oriented decision target space."""
+    if label in {"silence", current_config.MODEL_SILENCE_LABEL}:
+        return "silence"
+    if label == "ood":
+        return "ood"
+    if label in current_config.ACTIONABLE_LABELS:
+        return label
+    if label in current_config.IDLE_LABELS:
+        return "idle"
+    return "other"
+
+
+def target_labels_for_sample(sample: SampleRecord) -> set[str]:
+    """Return the raw positive label set for one sample."""
+    return set(sample.positive_labels or (sample.label,))
+
+
+def decision_target_set(sample: SampleRecord) -> set[str]:
+    """Return the collapsed decision-target set for one sample."""
+    return set(sample.decision_target_labels or (collapse_label_for_decision(sample.label),))
+
+
+def clean_old_png_artifacts(directory: str) -> list[str]:
+    """Delete stale PNG outputs before a fresh benchmark run."""
+    removed = []
+    if not os.path.isdir(directory):
+        return removed
+    for filename in sorted(os.listdir(directory)):
+        if not filename.lower().endswith(".png"):
+            continue
+        path = os.path.join(directory, filename)
+        try:
+            os.remove(path)
+            removed.append(path)
+        except OSError:
+            continue
+    return removed
 
 
 def parse_optional_float(value: str | None) -> float | None:
@@ -433,16 +539,26 @@ def build_sample_records(args: argparse.Namespace, label_map: dict[str, str]) ->
         for row_index, row in enumerate(reader, start=1):
             raw_path = (row.get(args.path_column) or "").strip()
             raw_label = (row.get(args.label_column) or "").strip()
-            if not raw_path or not raw_label:
+            raw_label_list = (row.get(args.labels_column) or raw_label).strip()
+            if not raw_path or not raw_label_list:
                 continue
 
-            source_label = (row.get(args.source_label_column) or raw_label).strip()
-            mapped_label = label_map.get(raw_label, raw_label)
-            if mapped_label not in REDUCED_LABEL_SET:
-                print(
-                    f"[WARN] Satir {row_index}: '{mapped_label}' reduced label setinde yok, atlandi.",
-                    file=sys.stderr,
-                )
+            source_labels = split_label_cell((row.get(args.source_label_column) or raw_label_list).strip(), args.label_separator)
+            raw_labels = split_label_cell(raw_label_list, args.label_separator)
+
+            mapped_labels = []
+            for label in raw_labels:
+                mapped = label_map.get(label, label)
+                if mapped not in REDUCED_LABEL_SET:
+                    print(
+                        f"[WARN] Satir {row_index}: '{mapped}' reduced label setinde yok, atlandi.",
+                        file=sys.stderr,
+                    )
+                    continue
+                mapped_labels.append(mapped)
+
+            mapped_labels = list(unique_labels(mapped_labels))
+            if not mapped_labels:
                 continue
 
             audio_path = raw_path if os.path.isabs(raw_path) else os.path.join(dataset_root, raw_path)
@@ -459,9 +575,11 @@ def build_sample_records(args: argparse.Namespace, label_map: dict[str, str]) ->
                 SampleRecord(
                     clip_id=clip_id,
                     audio_path=os.path.abspath(audio_path),
-                    label=mapped_label,
-                    source_label=source_label,
+                    label=mapped_labels[0],
+                    source_label=format_labels(source_labels or raw_labels),
                     dataset_name=dataset_name,
+                    positive_labels=tuple(mapped_labels),
+                    decision_target_labels=unique_labels(collapse_label_for_decision(label) for label in mapped_labels),
                     metadata=metadata,
                     onset_time=parse_optional_float(row.get("onset_time")),
                     prediction_time=parse_optional_float(row.get("prediction_time")),
@@ -661,16 +779,22 @@ def append_prediction_rows(
                 "audio_path": record.sample.audio_path,
                 "source_label": record.sample.source_label,
                 "target_label": record.sample.label,
+                "target_labels": format_labels(record.sample.positive_labels),
+                "decision_target_labels": format_labels(record.sample.decision_target_labels),
                 "raw_predicted_label": record.raw_predicted_label,
                 "raw_predicted_confidence": f"{record.raw_predicted_confidence:.6f}",
+                "raw_top3_labels": json.dumps(record.raw_top3, ensure_ascii=False),
                 "dominant_label": record.dominant_label,
                 "dominant_confidence": f"{record.dominant_confidence:.6f}",
+                "dominant_top3_labels": json.dumps(record.dominant_top3, ensure_ascii=False),
                 "window_index": record.window_index,
                 "window_start_s": f"{record.window_start_s:.6f}",
                 "window_end_s": f"{record.window_end_s:.6f}",
                 "duration_seconds": f"{record.duration_seconds:.6f}",
-                "is_correct": int(record.dominant_label == record.sample.label),
-                "is_raw_correct": int(record.raw_predicted_label == record.sample.label),
+                "is_correct": int(record.dominant_label in decision_target_set(record.sample)),
+                "is_raw_correct": int(record.raw_predicted_label in target_labels_for_sample(record.sample)),
+                "matches_any_target": int(record.raw_predicted_label in target_labels_for_sample(record.sample)),
+                "matches_decision_target": int(record.dominant_label in decision_target_set(record.sample)),
                 "input_channels": record.input_channels,
                 "spatial_mode": record.spatial_mode,
                 "spatial_direction": record.spatial_direction,
@@ -724,7 +848,7 @@ def latest_overall_rows(summary_rows: list[dict[str, str]]) -> list[dict[str, st
 
 
 def plot_history(summary_rows: list[dict[str, str]], plot_path: str) -> None:
-    """Generate a classification comparison chart from the shared benchmark CSV."""
+    """Generate a multilabel-aware classification comparison chart."""
     overall_rows = latest_overall_rows(summary_rows)
     if not overall_rows:
         return
@@ -738,13 +862,15 @@ def plot_history(summary_rows: list[dict[str, str]], plot_path: str) -> None:
     legend_labels = sorted({display_label(row) for row in overall_rows})
     color_map = {label: plt.cm.Set2(index % 8) for index, label in enumerate(legend_labels)}
     metrics = [
-        ("accuracy", "Uctan Uca Dogruluk", 0.0, 1.08),
-        ("f1", "Uctan Uca Makro F1", 0.0, 1.08),
+        ("accuracy", "Raw Top-1 Hit Orani", 0.0, 1.08),
+        ("topk_hit_rate", "Raw Top-K Hit Orani", 0.0, 1.08),
+        ("f1", "Multilabel Macro F1@K", 0.0, 1.08),
+        ("decision_target_hit_rate", "HUD Karar Hit Orani", 0.0, 1.08),
         ("ece", "ECE", 0.0, 1.08),
         ("false_alerts_per_minute", "Yanlis Alarm / Dakika", 0.0, None),
     ]
 
-    fig, axes = plt.subplots(2, 2, figsize=(16, 10), constrained_layout=True)
+    fig, axes = plt.subplots(2, 3, figsize=(18, 10), constrained_layout=True)
     axes_flat = axes.flatten()
 
     for axis, (metric_key, metric_title, y_min, y_max) in zip(axes_flat, metrics):
@@ -792,16 +918,19 @@ def plot_history(summary_rows: list[dict[str, str]], plot_path: str) -> None:
         axis.set_title(metric_title)
         axis.set_ylabel("Skor")
         axis.set_xticks(x_positions)
-        axis.set_xticklabels(dataset_names)
+        axis.set_xticklabels(dataset_names, rotation=0)
         axis.grid(True, axis="y", linestyle="--", alpha=0.3)
         axis.set_ylim(y_min, (y_max if y_max is not None else max(1.0, max_value * 1.35 + 0.05)))
+
+    for axis in axes_flat[len(metrics):]:
+        axis.axis("off")
 
     handles = [
         plt.Line2D([0], [0], color=color_map[label], lw=8, label=label)
         for label in legend_labels
     ]
     fig.legend(handles=handles, loc="upper center", ncol=min(len(handles), 4), frameon=False)
-    fig.suptitle("Model ve pipeline karsilastirma ozeti", fontsize=16)
+    fig.suptitle("Multilabel siniflandirma ve karar ozeti", fontsize=16)
     plt.savefig(plot_path, dpi=180, bbox_inches="tight")
     plt.close(fig)
 
@@ -824,10 +953,12 @@ def plot_behavior_history(summary_rows: list[dict[str, str]], plot_path: str) ->
         ("flapping_transitions_per_min", "Flapping / Dakika", 0.0, None),
         ("speech_gate_toggles_per_min", "Speech Gate Toggle / Dakika", 0.0, None),
         ("payload_decision_rate", "Payload Decision Orani", 0.0, 1.08),
+        ("payload_spatial_rate", "Payload Spatial Orani", 0.0, 1.08),
         ("mono_raw_match_rate", "Mono Raw Eslesme Orani", 0.0, 1.08),
+        ("other_rate", "Other Cikis Orani", 0.0, 1.08),
     ]
 
-    fig, axes = plt.subplots(2, 2, figsize=(16, 10), constrained_layout=True)
+    fig, axes = plt.subplots(2, 3, figsize=(18, 10), constrained_layout=True)
     axes_flat = axes.flatten()
 
     for axis, (metric_key, metric_title, y_min, y_max) in zip(axes_flat, metrics):
@@ -870,9 +1001,12 @@ def plot_behavior_history(summary_rows: list[dict[str, str]], plot_path: str) ->
         axis.set_title(metric_title)
         axis.set_ylabel("Skor")
         axis.set_xticks(x_positions)
-        axis.set_xticklabels(dataset_names)
+        axis.set_xticklabels(dataset_names, rotation=0)
         axis.grid(True, axis="y", linestyle="--", alpha=0.3)
         axis.set_ylim(y_min, (y_max if y_max is not None else max(1.0, max_value * 1.35 + 0.05)))
+
+    for axis in axes_flat[len(metrics):]:
+        axis.axis("off")
 
     handles = [
         plt.Line2D([0], [0], color=color_map[label], lw=8, label=label)
@@ -885,18 +1019,18 @@ def plot_behavior_history(summary_rows: list[dict[str, str]], plot_path: str) ->
 
 
 def build_confusion_matrix(clip_results: list[ClipResult]) -> tuple[list[str], np.ndarray]:
-    """Build a confusion matrix ordered by the active label set in this run."""
+    """Build a primary-label confusion matrix from raw top-1 predictions."""
     labels = [
         label
-        for label in sorted(set(REDUCED_LABEL_SET + ["silence", "idle", "ood"]))
-        if any(result.sample.label == label or result.predicted_label == label for result in clip_results)
+        for label in sorted(set(REDUCED_LABEL_SET))
+        if any(result.sample.label == label or result.raw_predicted_label == label for result in clip_results)
     ]
     index_by_label = {label: index for index, label in enumerate(labels)}
     matrix = np.zeros((len(labels), len(labels)), dtype=np.int32)
 
     for result in clip_results:
         true_index = index_by_label[result.sample.label]
-        pred_index = index_by_label[result.predicted_label]
+        pred_index = index_by_label[result.raw_predicted_label]
         matrix[true_index, pred_index] += 1
 
     return labels, matrix
@@ -999,6 +1133,116 @@ def plot_state_distribution(path: str, window_records: list[WindowRecord], title
         ax.text(index, value + 0.02, f"{value:.2f}", ha="center", va="bottom")
     plt.tight_layout()
     plt.savefig(path, dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_multilabel_class_report(summary_rows: list[dict[str, str | float | int]], plot_path: str) -> None:
+    """Render a grouped multilabel class report without overlapping labels."""
+    class_rows = [row for row in summary_rows if row.get("metric_scope") == "class"]
+    if not class_rows:
+        return
+
+    grouped: dict[str, list[dict[str, str | float | int]]] = defaultdict(list)
+    for row in class_rows:
+        grouped[str(row["dataset_name"])].append(row)
+
+    dataset_names = sorted(grouped.keys())
+    metrics = [("precision", "Precision@K"), ("recall", "Recall@K"), ("f1", "F1@K")]
+    fig, axes = plt.subplots(
+        len(dataset_names),
+        len(metrics),
+        figsize=(18, max(4.5, 4.4 * len(dataset_names))),
+        constrained_layout=True,
+        squeeze=False,
+    )
+
+    legend_handles = {}
+    for row_index, dataset_name in enumerate(dataset_names):
+        dataset_rows = grouped[dataset_name]
+        variant_names = sorted({str(row["pipeline_variant"]) for row in dataset_rows})
+        support_by_label = defaultdict(int)
+        for row in dataset_rows:
+            support_by_label[str(row["class_label"])] = max(
+                support_by_label[str(row["class_label"])],
+                int(float(row["sample_count"])),
+            )
+
+        top_labels = [
+            label
+            for label, _support in sorted(
+                support_by_label.items(),
+                key=lambda item: (-item[1], item[0]),
+            )
+            if support_by_label[label] > 0
+        ][:12]
+        if not top_labels:
+            top_labels = sorted(support_by_label.keys())[:12]
+
+        y_positions = np.arange(len(top_labels))
+        bar_height = 0.72 / max(len(variant_names), 1)
+        color_map = {name: plt.cm.Set2(index % 8) for index, name in enumerate(variant_names)}
+
+        for col_index, (metric_key, metric_title) in enumerate(metrics):
+            axis = axes[row_index][col_index]
+            max_value = 0.0
+            for variant_index, variant_name in enumerate(variant_names):
+                offsets = y_positions - 0.36 + (variant_index + 0.5) * bar_height
+                values = []
+                for label in top_labels:
+                    matching_row = next(
+                        (
+                            row
+                            for row in dataset_rows
+                            if str(row["pipeline_variant"]) == variant_name and str(row["class_label"]) == label
+                        ),
+                        None,
+                    )
+                    value = float(matching_row[metric_key]) if matching_row and matching_row[metric_key] not in ("", None) else 0.0
+                    values.append(value)
+                    max_value = max(max_value, value)
+
+                bars = axis.barh(
+                    offsets,
+                    values,
+                    height=bar_height,
+                    color=color_map[variant_name],
+                    edgecolor="white",
+                    linewidth=0.8,
+                    label=variant_name,
+                )
+                legend_handles[variant_name] = bars[0]
+                for bar, value in zip(bars, values):
+                    axis.text(
+                        min(value + 0.015, 1.03),
+                        bar.get_y() + bar.get_height() / 2.0,
+                        f"{value:.2f}",
+                        va="center",
+                        ha="left",
+                        fontsize=8,
+                    )
+
+            axis.set_yticks(y_positions)
+            axis.set_yticklabels(top_labels)
+            axis.invert_yaxis()
+            axis.set_xlim(0.0, max(1.0, max_value * 1.15 + 0.04))
+            axis.grid(True, axis="x", linestyle="--", alpha=0.3)
+            axis.set_title(f"{dataset_name} - {metric_title}")
+            if col_index == 0:
+                axis.set_ylabel("Etiket")
+            else:
+                axis.set_ylabel("")
+            axis.set_xlabel("Skor")
+
+    fig.legend(
+        list(legend_handles.values()),
+        list(legend_handles.keys()),
+        loc="upper center",
+        ncol=min(len(legend_handles), 4),
+        frameon=False,
+    )
+    fig.suptitle("Multilabel sinif bazli rapor", fontsize=16)
+    ensure_parent_dir(plot_path)
+    plt.savefig(plot_path, dpi=180, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -1235,6 +1479,7 @@ def aggregate_clip_result(
     window_records: list[WindowRecord],
     labels: list[str],
     raw_prob_sum: np.ndarray,
+    raw_topk: int,
 ) -> ClipResult:
     """Collapse one clip's windows into one clip-level result."""
     dominant_counter: Counter[str] = Counter()
@@ -1257,6 +1502,7 @@ def aggregate_clip_result(
     averaged_probs = raw_prob_sum / max(len(window_records), 1)
     raw_top3 = average_topk(labels, averaged_probs, limit=3)
     raw_predicted_label, raw_predicted_confidence = raw_top3[0]
+    raw_eval_labels = tuple(label for label, _score in average_topk(labels, averaged_probs, limit=max(1, raw_topk)))
 
     return ClipResult(
         sample=sample,
@@ -1267,6 +1513,7 @@ def aggregate_clip_result(
         raw_predicted_label=raw_predicted_label,
         raw_predicted_confidence=float(raw_predicted_confidence),
         raw_top3=raw_top3,
+        raw_eval_labels=raw_eval_labels,
         duration_seconds=float(window_records[-1].window_end_s if window_records else 0.0),
         windows=window_records,
     )
@@ -1335,8 +1582,10 @@ def evaluate_sample_pair(
                 window_end_s=window_end_s,
                 raw_predicted_label=legacy.raw_top5[0]["label"],
                 raw_predicted_confidence=float(legacy.raw_top5[0]["prob"]),
+                raw_top3=[(item["label"], float(item["prob"])) for item in legacy.raw_top5[:3]],
                 dominant_label=legacy.dominant_label,
                 dominant_confidence=float(legacy.dominant_prob),
+                dominant_top3=[(item["label"], float(item["prob"])) for item in legacy.raw_top5[:3]],
                 decision_state="raw",
                 decision_priority="none",
                 speech_prob=float(legacy.speech_prob),
@@ -1363,8 +1612,10 @@ def evaluate_sample_pair(
                 window_end_s=window_end_s,
                 raw_predicted_label=current.raw_top5[0]["label"],
                 raw_predicted_confidence=float(current.raw_top5[0]["prob"]),
+                raw_top3=[(item["label"], float(item["prob"])) for item in current.raw_top5[:3]],
                 dominant_label=current.decision.label,
                 dominant_confidence=float(current.decision.confidence),
+                dominant_top3=[(item["label"], float(item["prob"])) for item in current.decision.top5[:3]],
                 decision_state=current.decision.state,
                 decision_priority=current.decision.priority,
                 speech_prob=float(current.decision.speech_prob),
@@ -1386,8 +1637,22 @@ def evaluate_sample_pair(
     if raw_prob_sum is None or label_names is None:
         raise RuntimeError(f"Degerlendirilebilir pencere olusmadi: {sample.audio_path}")
 
-    legacy_clip = aggregate_clip_result(sample, args.legacy_variant_label, legacy_windows, label_names, raw_prob_sum)
-    current_clip = aggregate_clip_result(sample, args.current_variant_label, current_windows, label_names, raw_prob_sum)
+    legacy_clip = aggregate_clip_result(
+        sample,
+        args.legacy_variant_label,
+        legacy_windows,
+        label_names,
+        raw_prob_sum,
+        args.raw_topk,
+    )
+    current_clip = aggregate_clip_result(
+        sample,
+        args.current_variant_label,
+        current_windows,
+        label_names,
+        raw_prob_sum,
+        args.raw_topk,
+    )
     return legacy_clip, current_clip
 
 
@@ -1448,6 +1713,32 @@ def compute_cross_variant_metrics(
     )
 
 
+def raw_top1_hit(result: ClipResult) -> bool:
+    """Return whether the raw top-1 label hits any positive target label."""
+    return result.raw_predicted_label in target_labels_for_sample(result.sample)
+
+
+def raw_topk_hit(result: ClipResult) -> bool:
+    """Return whether the raw top-k set overlaps any positive target label."""
+    return bool(set(result.raw_eval_labels) & target_labels_for_sample(result.sample))
+
+
+def decision_target_hit(result: ClipResult) -> bool:
+    """Return whether the decision output matches the HUD-oriented target set."""
+    return result.predicted_label in decision_target_set(result.sample)
+
+
+def multilabel_sample_prf(result: ClipResult) -> tuple[float, float, float]:
+    """Compute sample-wise multilabel precision/recall/F1 from the raw top-k set."""
+    positives = target_labels_for_sample(result.sample)
+    predicted = set(result.raw_eval_labels)
+    tp = len(predicted & positives)
+    precision = safe_div(tp, len(predicted))
+    recall = safe_div(tp, len(positives))
+    f1 = safe_div(2.0 * precision * recall, precision + recall)
+    return precision, recall, f1
+
+
 def summarize_variant_rows(
     clip_results: list[ClipResult],
     all_window_records: list[WindowRecord],
@@ -1460,71 +1751,65 @@ def summarize_variant_rows(
     ece_bins: int,
     cross_metrics: CrossVariantMetrics,
 ) -> tuple[list[dict[str, str | float | int]], float, list[dict[str, float]]]:
-    """Build overall + per-class rows for one dataset and one pipeline variant."""
+    """Build multilabel raw-event rows plus decision-target overall rows."""
     timestamp_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(run_timestamp_unix))
     total = len(clip_results)
     total_audio_minutes = safe_div(sum(result.duration_seconds for result in clip_results), 60.0)
 
-    correctness = np.array(
-        [1.0 if result.predicted_label == result.sample.label else 0.0 for result in clip_results],
-        dtype=np.float64,
-    )
-    confidences = np.array([result.predicted_confidence for result in clip_results], dtype=np.float64)
-    ece, calibration_bins = compute_ece_from_arrays(confidences, correctness, ece_bins)
+    raw_top1_correctness = np.array([1.0 if raw_top1_hit(result) else 0.0 for result in clip_results], dtype=np.float64)
+    ece_confidences = np.array([result.raw_predicted_confidence for result in clip_results], dtype=np.float64)
+    ece, calibration_bins = compute_ece_from_arrays(ece_confidences, raw_top1_correctness, ece_bins)
 
-    true_counter = Counter(result.sample.label for result in clip_results)
-    pred_counter = Counter(result.predicted_label for result in clip_results)
-    tp_counter = Counter(result.sample.label for result in clip_results if result.predicted_label == result.sample.label)
-
-    raw_true_counter = Counter(result.sample.label for result in clip_results)
-    raw_pred_counter = Counter(result.raw_predicted_label for result in clip_results)
+    class_support = Counter(label for result in clip_results for label in target_labels_for_sample(result.sample))
+    raw_pred_counter = Counter(label for result in clip_results for label in result.raw_eval_labels)
     raw_tp_counter = Counter(
+        label
+        for result in clip_results
+        for label in (set(result.raw_eval_labels) & target_labels_for_sample(result.sample))
+    )
+
+    primary_true_counter = Counter(result.sample.label for result in clip_results)
+    primary_pred_counter = Counter(result.raw_predicted_label for result in clip_results)
+    primary_tp_counter = Counter(
         result.sample.label for result in clip_results if result.raw_predicted_label == result.sample.label
     )
 
-    correct = int(np.sum(correctness))
-    raw_correct = sum(1 for result in clip_results if result.raw_predicted_label == result.sample.label)
-    avg_confidence = safe_div(sum(result.predicted_confidence for result in clip_results), total)
-    raw_avg_confidence = safe_div(sum(result.raw_predicted_confidence for result in clip_results), total)
-
-    precision_values = []
-    recall_values = []
-    f1_values = []
-    raw_precision_values = []
-    raw_recall_values = []
-    raw_f1_values = []
+    multilabel_macro_precision_values = []
+    multilabel_macro_recall_values = []
+    multilabel_macro_f1_values = []
+    primary_precision_values = []
+    primary_recall_values = []
+    primary_f1_values = []
     labels_in_run = sorted(
-        {
-            result.sample.label
-            for result in clip_results
-        }
-        | {result.predicted_label for result in clip_results}
-        | {result.raw_predicted_label for result in clip_results}
+        set(class_support)
+        | set(raw_pred_counter)
+        | {result.predicted_label for result in clip_results if result.predicted_label not in NEUTRAL_OUTPUT_LABELS}
     )
 
     per_class_rows: list[dict[str, str | float | int]] = []
     for label in labels_in_run:
-        tp = tp_counter[label]
-        fp = pred_counter[label] - tp
-        fn = true_counter[label] - tp
+        tp = raw_tp_counter[label]
+        fp = raw_pred_counter[label] - tp
+        fn = class_support[label] - tp
         precision = safe_div(tp, tp + fp)
         recall = safe_div(tp, tp + fn)
         f1 = safe_div(2 * precision * recall, precision + recall)
 
-        raw_tp = raw_tp_counter[label]
-        raw_fp = raw_pred_counter[label] - raw_tp
-        raw_fn = raw_true_counter[label] - raw_tp
-        raw_precision = safe_div(raw_tp, raw_tp + raw_fp)
-        raw_recall = safe_div(raw_tp, raw_tp + raw_fn)
-        raw_f1 = safe_div(2 * raw_precision * raw_recall, raw_precision + raw_recall)
+        primary_tp = primary_tp_counter[label]
+        primary_fp = primary_pred_counter[label] - primary_tp
+        primary_fn = primary_true_counter[label] - primary_tp
+        primary_precision = safe_div(primary_tp, primary_tp + primary_fp)
+        primary_recall = safe_div(primary_tp, primary_tp + primary_fn)
+        primary_f1 = safe_div(2 * primary_precision * primary_recall, primary_precision + primary_recall)
 
-        if true_counter[label] > 0:
-            precision_values.append(precision)
-            recall_values.append(recall)
-            f1_values.append(f1)
-            raw_precision_values.append(raw_precision)
-            raw_recall_values.append(raw_recall)
-            raw_f1_values.append(raw_f1)
+        if class_support[label] > 0:
+            multilabel_macro_precision_values.append(precision)
+            multilabel_macro_recall_values.append(recall)
+            multilabel_macro_f1_values.append(f1)
+        if primary_true_counter[label] > 0:
+            primary_precision_values.append(primary_precision)
+            primary_recall_values.append(primary_recall)
+            primary_f1_values.append(primary_f1)
 
         per_class_rows.append(
             {
@@ -1535,24 +1820,26 @@ def summarize_variant_rows(
                 "dataset_name": dataset_name,
                 "metric_scope": "class",
                 "class_label": label,
-                "sample_count": true_counter[label],
+                "sample_count": class_support[label],
                 "correct_count": tp,
                 "total_audio_minutes": "",
-                "accuracy": safe_div(tp, true_counter[label]),
+                "accuracy": recall,
                 "precision": precision,
                 "recall": recall,
                 "f1": f1,
-                "raw_accuracy": safe_div(raw_tp, raw_true_counter[label]),
-                "raw_precision": raw_precision,
-                "raw_recall": raw_recall,
-                "raw_f1": raw_f1,
+                "topk_hit_rate": "",
+                "decision_target_hit_rate": "",
+                "raw_accuracy": safe_div(primary_tp, primary_true_counter[label]),
+                "raw_precision": primary_precision,
+                "raw_recall": primary_recall,
+                "raw_f1": primary_f1,
                 "avg_confidence": safe_div(
-                    sum(result.predicted_confidence for result in clip_results if result.sample.label == label),
-                    true_counter[label],
+                    sum(result.raw_predicted_confidence for result in clip_results if label in target_labels_for_sample(result.sample)),
+                    class_support[label],
                 ),
                 "raw_avg_confidence": safe_div(
                     sum(result.raw_predicted_confidence for result in clip_results if result.sample.label == label),
-                    raw_true_counter[label],
+                    primary_true_counter[label],
                 ),
                 "ece": "",
                 "false_alerts_per_minute": "",
@@ -1593,11 +1880,13 @@ def summarize_variant_rows(
         )
         for records in windows_by_clip.values()
     )
+
     wrong_alert_starts = 0
     for records in windows_by_clip.values():
         previous_wrong_label = None
         for record in records:
-            is_wrong_alert = record.dominant_label not in NEUTRAL_OUTPUT_LABELS and record.dominant_label != record.sample.label
+            target_decisions = decision_target_set(record.sample)
+            is_wrong_alert = record.dominant_label not in NEUTRAL_OUTPUT_LABELS and record.dominant_label not in target_decisions
             current_wrong_label = record.dominant_label if is_wrong_alert else None
             if current_wrong_label is not None and current_wrong_label != previous_wrong_label:
                 wrong_alert_starts += 1
@@ -1636,6 +1925,15 @@ def summarize_variant_rows(
     ui_mean, ui_p50 = summarize_latency(ui_latency_ms)
     human_mean, human_p50 = summarize_latency(human_response_ms)
 
+    sample_precisions = []
+    sample_recalls = []
+    sample_f1s = []
+    for result in clip_results:
+        precision, recall, f1 = multilabel_sample_prf(result)
+        sample_precisions.append(precision)
+        sample_recalls.append(recall)
+        sample_f1s.append(f1)
+
     overall_row = {
         "timestamp_utc": timestamp_iso,
         "run_id": run_id,
@@ -1645,18 +1943,20 @@ def summarize_variant_rows(
         "metric_scope": "overall",
         "class_label": "__overall__",
         "sample_count": total,
-        "correct_count": correct,
+        "correct_count": int(np.sum(raw_top1_correctness)),
         "total_audio_minutes": total_audio_minutes,
-        "accuracy": safe_div(correct, total),
-        "precision": safe_div(sum(precision_values), len(precision_values)),
-        "recall": safe_div(sum(recall_values), len(recall_values)),
-        "f1": safe_div(sum(f1_values), len(f1_values)),
-        "raw_accuracy": safe_div(raw_correct, total),
-        "raw_precision": safe_div(sum(raw_precision_values), len(raw_precision_values)),
-        "raw_recall": safe_div(sum(raw_recall_values), len(raw_recall_values)),
-        "raw_f1": safe_div(sum(raw_f1_values), len(raw_f1_values)),
-        "avg_confidence": avg_confidence,
-        "raw_avg_confidence": raw_avg_confidence,
+        "accuracy": safe_div(np.sum(raw_top1_correctness), total),
+        "precision": safe_div(sum(multilabel_macro_precision_values), len(multilabel_macro_precision_values)),
+        "recall": safe_div(sum(multilabel_macro_recall_values), len(multilabel_macro_recall_values)),
+        "f1": safe_div(sum(multilabel_macro_f1_values), len(multilabel_macro_f1_values)),
+        "topk_hit_rate": safe_div(sum(1 for result in clip_results if raw_topk_hit(result)), total),
+        "decision_target_hit_rate": safe_div(sum(1 for result in clip_results if decision_target_hit(result)), total),
+        "raw_accuracy": safe_div(sum(1 for result in clip_results if result.raw_predicted_label == result.sample.label), total),
+        "raw_precision": safe_div(sum(primary_precision_values), len(primary_precision_values)),
+        "raw_recall": safe_div(sum(primary_recall_values), len(primary_recall_values)),
+        "raw_f1": safe_div(sum(primary_f1_values), len(primary_f1_values)),
+        "avg_confidence": safe_div(sum(result.raw_predicted_confidence for result in clip_results), total),
+        "raw_avg_confidence": safe_div(sum(result.raw_predicted_confidence for result in clip_results), total),
         "ece": ece,
         "false_alerts_per_minute": safe_div(wrong_alert_starts, total_audio_minutes),
         "flapping_transitions_per_min": safe_div(transitions, total_audio_minutes),
@@ -1685,7 +1985,6 @@ def summarize_variant_rows(
     }
     return [overall_row, *per_class_rows], ece, calibration_bins
 
-
 def export_dataset_artifacts(
     clip_results: list[ClipResult],
     window_records: list[WindowRecord],
@@ -1709,7 +2008,12 @@ def export_dataset_artifacts(
     states_png = f"{artifact_prefix}_state_distribution.png"
 
     write_confusion_matrix_csv(confusion_csv, labels, matrix)
-    plot_confusion_matrix(confusion_png, labels, matrix, f"{dataset_name} - {model_label} [{pipeline_variant}]")
+    plot_confusion_matrix(
+        confusion_png,
+        labels,
+        matrix,
+        f"{dataset_name} - {model_label} [{pipeline_variant}] - primary label confusion",
+    )
     plot_reliability_curve(
         reliability_png,
         calibration_bins,
@@ -1730,9 +2034,11 @@ def print_run_summary(rows: Iterable[dict[str, str | float | int]]) -> None:
         print(f"Pipeline varyanti       : {overall_row['pipeline_variant']}")
         print(f"Veri kumesi             : {overall_row['dataset_name']}")
         print(f"Clip sayisi             : {overall_row['sample_count']}")
-        print(f"Uctan uca dogruluk      : {float(overall_row['accuracy']):.4f}")
-        print(f"Uctan uca Makro F1      : {float(overall_row['f1']):.4f}")
-        print(f"Raw dogruluk            : {float(overall_row['raw_accuracy']):.4f}")
+        print(f"Raw Top-1 hit           : {float(overall_row['accuracy']):.4f}")
+        print(f"Raw Top-K hit           : {float(overall_row['topk_hit_rate']):.4f}")
+        print(f"Multilabel Macro F1@K   : {float(overall_row['f1']):.4f}")
+        print(f"HUD karar hit           : {float(overall_row['decision_target_hit_rate']):.4f}")
+        print(f"Primary-label accuracy  : {float(overall_row['raw_accuracy']):.4f}")
         print(f"ECE                     : {float(overall_row['ece']):.4f}")
         print(f"Flapping / dakika       : {float(overall_row['flapping_transitions_per_min']):.4f}")
         print(f"Speech gate / dakika    : {float(overall_row['speech_gate_toggles_per_min']):.4f}")
@@ -1750,6 +2056,11 @@ def main() -> None:
     run_timestamp_unix = time.time()
     run_id = uuid.uuid4().hex[:12]
     label_map = load_label_map(args.label_map_json)
+
+    if args.clear_old_pngs:
+        removed_pngs = clean_old_png_artifacts(EVAL_DIR)
+        if removed_pngs:
+            print(f"[TEMIZLIK] Silinen eski PNG sayisi: {len(removed_pngs)}")
 
     print("[EVAL] Manifest okunuyor...")
     samples = build_sample_records(args, label_map)
@@ -1824,12 +2135,14 @@ def main() -> None:
     summary_history = read_summary_rows(args.summary_csv)
     plot_history(summary_history, args.plot_path)
     plot_behavior_history(summary_history, args.behavior_plot_path)
+    plot_multilabel_class_report(rows_to_append, MULTILABEL_CLASS_REPORT_PNG)
     print_run_summary(rows_to_append)
 
     print(f"[KAYIT] Ozet CSV             : {os.path.abspath(args.summary_csv)}")
     print(f"[KAYIT] Detay pencere CSV    : {os.path.abspath(args.predictions_csv)}")
     print(f"[KAYIT] Siniflama grafigi    : {os.path.abspath(args.plot_path)}")
     print(f"[KAYIT] Davranis grafigi     : {os.path.abspath(args.behavior_plot_path)}")
+    print(f"[KAYIT] Sinif bazli rapor    : {os.path.abspath(MULTILABEL_CLASS_REPORT_PNG)}")
     print(f"[KAYIT] Run ID               : {run_id}")
     for artifact_path in artifact_paths:
         print(f"[KAYIT] Artefakt             : {os.path.abspath(artifact_path)}")
