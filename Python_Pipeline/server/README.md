@@ -1,6 +1,6 @@
 # Python Pipeline Server
 
-This folder contains the refactored Python runtime used by EchoSpaceAR for:
+This folder contains the organized Python runtime used by EchoSpaceAR for:
 
 - real-time SPL visualization
 - reduced YAMNet sound classification
@@ -71,4 +71,4 @@ Open the static explainer page at:
 
 - `docs/python_pipeline_refactor.html`
 
-It summarizes the runtime flow, module map, and the refactor decisions in a browser-friendly format.
+It summarizes the runtime flow, Unity/Python architecture, and the module map in a browser-friendly format.

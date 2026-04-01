@@ -3,23 +3,33 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EchoSpaceAR Python Pipeline Refactor</title>
+  <title>EchoSpaceAR Audio Pipeline Architecture</title>
   <style>
     :root {
-      --bg: #f6efe5;
-      --bg-deep: #f0dfc5;
-      --card: rgba(255, 252, 247, 0.78);
-      --line: rgba(52, 38, 22, 0.12);
-      --ink: #2b2217;
-      --muted: #685847;
-      --accent: #0d7c66;
-      --accent-strong: #0f5f52;
-      --warm: #d97742;
-      --shadow: 0 22px 60px rgba(58, 39, 18, 0.12);
+      --bg: #f6efe6;
+      --bg-deep: #eadac0;
+      --paper: rgba(255, 252, 247, 0.86);
+      --paper-strong: rgba(255, 250, 244, 0.94);
+      --line: rgba(57, 40, 25, 0.12);
+      --ink: #2a2118;
+      --muted: #645646;
+      --teal: #0f766e;
+      --teal-soft: rgba(15, 118, 110, 0.12);
+      --amber: #d97706;
+      --amber-soft: rgba(217, 119, 6, 0.12);
+      --rose: #d9485f;
+      --navy: #1d4d6c;
+      --shadow: 0 24px 60px rgba(72, 49, 23, 0.12);
+      --shadow-soft: 0 12px 30px rgba(72, 49, 23, 0.08);
     }
 
     * {
       box-sizing: border-box;
+      min-width: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
     }
 
     body {
@@ -27,220 +37,402 @@
       font-family: "Avenir Next", "Segoe UI", sans-serif;
       color: var(--ink);
       background:
-        radial-gradient(circle at top left, rgba(217, 119, 66, 0.16), transparent 30%),
-        radial-gradient(circle at top right, rgba(13, 124, 102, 0.18), transparent 28%),
+        radial-gradient(circle at top left, rgba(217, 119, 6, 0.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(15, 118, 110, 0.18), transparent 30%),
         linear-gradient(160deg, var(--bg) 0%, var(--bg-deep) 100%);
       min-height: 100vh;
     }
 
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(57, 40, 25, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(57, 40, 25, 0.035) 1px, transparent 1px);
+      background-size: 32px 32px;
+      pointer-events: none;
+      mask-image: radial-gradient(circle at center, black 55%, transparent 95%);
+    }
+
     .shell {
-      width: min(1180px, calc(100% - 32px));
+      width: min(1220px, calc(100% - 28px));
       margin: 0 auto;
-      padding: 28px 0 64px;
+      padding: 26px 0 72px;
+      position: relative;
+      z-index: 1;
+    }
+
+    section {
+      margin-top: 24px;
+    }
+
+    .hero,
+    .panel,
+    .mini-panel,
+    .flow-card,
+    .folder-card,
+    .lane-card,
+    .module-card,
+    .legend-card {
+      border: 1px solid var(--line);
+      background: var(--paper);
+      backdrop-filter: blur(18px);
+      box-shadow: var(--shadow-soft);
+      border-radius: 28px;
+      overflow: hidden;
     }
 
     .hero {
-      position: relative;
-      overflow: hidden;
-      padding: 48px;
-      border: 1px solid var(--line);
-      border-radius: 32px;
-      background: linear-gradient(135deg, rgba(255, 252, 247, 0.9), rgba(245, 232, 214, 0.82));
+      padding: 40px;
       box-shadow: var(--shadow);
+      position: relative;
+      background:
+        radial-gradient(circle at top right, rgba(15, 118, 110, 0.16), transparent 35%),
+        radial-gradient(circle at bottom left, rgba(217, 119, 6, 0.14), transparent 32%),
+        linear-gradient(140deg, rgba(255, 252, 247, 0.94), rgba(244, 233, 217, 0.88));
     }
 
     .hero::after {
       content: "";
       position: absolute;
-      inset: auto -80px -100px auto;
-      width: 260px;
-      height: 260px;
+      right: -40px;
+      top: -40px;
+      width: 220px;
+      height: 220px;
       border-radius: 50%;
-      background: radial-gradient(circle, rgba(13, 124, 102, 0.28), transparent 70%);
+      background: radial-gradient(circle, rgba(15, 118, 110, 0.18), transparent 68%);
       pointer-events: none;
     }
 
-    .eyebrow {
+    .eyebrow,
+    .chip {
       display: inline-flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 10px;
       padding: 8px 14px;
       border-radius: 999px;
-      font-size: 0.84rem;
+      font-size: 0.82rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: var(--accent-strong);
-      background: rgba(13, 124, 102, 0.12);
+      color: var(--teal);
+      background: var(--teal-soft);
+      border: 1px solid rgba(15, 118, 110, 0.08);
     }
 
     h1,
     h2,
-    h3 {
+    h3,
+    h4 {
       font-family: "Iowan Old Style", "Palatino Linotype", serif;
       margin: 0;
       line-height: 1.05;
+      overflow-wrap: anywhere;
     }
 
     h1 {
       margin-top: 18px;
-      font-size: clamp(2.8rem, 6vw, 5rem);
-      max-width: 9ch;
+      font-size: clamp(2.9rem, 6vw, 5.4rem);
+      max-width: 11ch;
+    }
+
+    h2 {
+      font-size: clamp(2rem, 3vw, 3rem);
+    }
+
+    h3 {
+      font-size: 1.35rem;
+      margin-bottom: 10px;
+    }
+
+    h4 {
+      font-size: 1.05rem;
+      margin-bottom: 8px;
+    }
+
+    p,
+    li,
+    code,
+    .stat,
+    .path,
+    .micro {
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     .lead {
-      max-width: 720px;
       margin-top: 18px;
-      font-size: 1.08rem;
-      line-height: 1.7;
+      max-width: 760px;
       color: var(--muted);
+      font-size: 1.08rem;
+      line-height: 1.75;
     }
 
     .hero-grid,
-    .section-grid,
-    .cards,
-    .flow,
-    .metrics {
+    .stats-grid,
+    .system-grid,
+    .flow-grid,
+    .folder-grid,
+    .lane-grid,
+    .module-grid,
+    .legend-grid {
       display: grid;
       gap: 18px;
     }
 
     .hero-grid {
-      grid-template-columns: 1.5fr 1fr;
+      grid-template-columns: 1.25fr 0.95fr;
       margin-top: 28px;
+      align-items: stretch;
     }
 
-    .metrics {
+    .stats-grid {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
-    .metric,
-    .card,
-    .flow-step,
-    .module,
-    .callout,
-    pre {
-      border: 1px solid var(--line);
-      border-radius: 24px;
-      background: var(--card);
-      backdrop-filter: blur(16px);
-      box-shadow: 0 12px 30px rgba(83, 56, 28, 0.08);
-    }
-
-    .metric,
-    .card,
-    .flow-step,
-    .module,
-    .callout {
+    .mini-panel,
+    .flow-card,
+    .folder-card,
+    .lane-card,
+    .module-card,
+    .legend-card,
+    .panel {
       padding: 22px;
     }
 
-    .metric strong {
+    .stat {
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .stat strong {
       display: block;
       font-size: 2rem;
+      color: var(--navy);
       margin-bottom: 8px;
-      color: var(--accent-strong);
+      font-family: "Iowan Old Style", "Palatino Linotype", serif;
     }
 
-    section {
-      margin-top: 26px;
+    .hero-note {
+      background: linear-gradient(145deg, rgba(15, 118, 110, 0.1), rgba(255, 250, 244, 0.94));
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 18px;
     }
 
-    .section-header {
+    .hero-note p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.75;
+    }
+
+    .path {
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+      max-width: 100%;
+      padding: 8px 12px;
+      border-radius: 14px;
+      background: rgba(29, 77, 108, 0.08);
+      color: var(--navy);
+      font-size: 0.95rem;
+      font-family: "SFMono-Regular", "Menlo", monospace;
+    }
+
+    .section-head {
       display: flex;
       justify-content: space-between;
-      gap: 20px;
+      gap: 18px;
       align-items: end;
-      margin-bottom: 18px;
+      margin-bottom: 16px;
     }
 
-    .section-header p {
-      max-width: 640px;
+    .section-head p {
+      max-width: 660px;
+      color: var(--muted);
+      line-height: 1.72;
+      margin: 0;
+    }
+
+    .system-grid {
+      grid-template-columns: 0.92fr 1.25fr 0.92fr;
+      align-items: center;
+    }
+
+    .stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .stack-node {
+      padding: 16px 18px;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: var(--paper-strong);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
+    }
+
+    .stack-node strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--ink);
+      font-size: 1rem;
+    }
+
+    .stack-node p,
+    .lane-card p,
+    .flow-card p,
+    .folder-card p,
+    .module-card p,
+    .legend-card p {
       margin: 0;
       color: var(--muted);
       line-height: 1.7;
     }
 
-    .section-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+    .unity {
+      background: linear-gradient(145deg, rgba(29, 77, 108, 0.12), rgba(255, 252, 247, 0.96));
     }
 
-    .cards {
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    .python {
+      background: linear-gradient(145deg, rgba(15, 118, 110, 0.12), rgba(255, 252, 247, 0.96));
     }
 
-    .card h3,
-    .module h3,
-    .flow-step h3 {
-      margin-bottom: 12px;
-      font-size: 1.35rem;
+    .return {
+      background: linear-gradient(145deg, rgba(217, 119, 6, 0.12), rgba(255, 252, 247, 0.96));
     }
 
-    .card p,
-    .module p,
-    .flow-step p,
-    .callout p,
-    li {
-      color: var(--muted);
-      line-height: 1.65;
+    .center-diagram {
+      padding: 8px;
     }
 
-    .flow {
-      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    svg {
+      width: 100%;
+      height: auto;
+      display: block;
     }
 
-    .flow-step {
+    .flow-grid {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .flow-card {
       position: relative;
-      padding-top: 56px;
+      padding-top: 54px;
+      min-height: 192px;
     }
 
-    .flow-step span {
+    .flow-card .num {
       position: absolute;
-      top: 18px;
-      left: 18px;
-      width: 28px;
-      height: 28px;
+      top: 16px;
+      left: 16px;
+      width: 30px;
+      height: 30px;
       display: grid;
       place-items: center;
       border-radius: 50%;
-      background: rgba(217, 119, 66, 0.16);
-      color: var(--warm);
+      color: var(--amber);
+      background: var(--amber-soft);
       font-weight: 700;
     }
 
-    .module small,
-    .chip {
+    .lane-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .lane-card {
+      min-height: 250px;
+      position: relative;
+    }
+
+    .lane-accent {
+      width: 44px;
+      height: 6px;
+      border-radius: 999px;
+      margin-bottom: 14px;
+      background: linear-gradient(90deg, var(--teal), var(--amber));
+    }
+
+    .lane-card ul,
+    .folder-card ul,
+    .module-card ul {
+      margin: 14px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .timeline-panel {
+      padding: 0;
+    }
+
+    .timeline-head {
+      padding: 22px 22px 10px;
+    }
+
+    .timeline-head p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      line-height: 1.72;
+    }
+
+    .folder-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .folder-card {
+      min-height: 230px;
+    }
+
+    .folder-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 12px;
+    }
+
+    .tag {
       display: inline-flex;
       padding: 6px 10px;
       border-radius: 999px;
-      background: rgba(13, 124, 102, 0.08);
-      color: var(--accent-strong);
-      font-size: 0.82rem;
-      margin-bottom: 10px;
+      background: rgba(29, 77, 108, 0.08);
+      color: var(--navy);
+      font-size: 0.8rem;
+      white-space: nowrap;
     }
 
-    pre {
-      margin: 0;
-      padding: 24px;
-      overflow: auto;
-      color: #24403a;
-      font-size: 0.95rem;
-      line-height: 1.65;
+    .module-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    ul {
-      padding-left: 18px;
-      margin: 0;
+    .module-card {
+      min-height: 210px;
     }
 
-    .callout {
-      background: linear-gradient(135deg, rgba(13, 124, 102, 0.12), rgba(255, 252, 247, 0.8));
+    .legend-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
     .footer {
       margin-top: 22px;
-      color: var(--muted);
       text-align: center;
+      color: var(--muted);
       font-size: 0.95rem;
+    }
+
+    @media (max-width: 1120px) {
+      .flow-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .lane-grid,
+      .folder-grid,
+      .legend-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
 
     @media (max-width: 920px) {
@@ -249,14 +441,43 @@
       }
 
       .hero-grid,
-      .section-grid,
-      .metrics {
+      .system-grid,
+      .module-grid,
+      .stats-grid,
+      .lane-grid,
+      .folder-grid,
+      .legend-grid {
         grid-template-columns: 1fr;
       }
 
-      .section-header {
+      .flow-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .section-head {
         flex-direction: column;
         align-items: start;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .shell {
+        width: min(100%, calc(100% - 16px));
+      }
+
+      .hero,
+      .panel,
+      .mini-panel,
+      .flow-card,
+      .folder-card,
+      .lane-card,
+      .module-card,
+      .legend-card {
+        border-radius: 22px;
+      }
+
+      .flow-grid {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -264,214 +485,509 @@
 <body>
   <main class="shell">
     <section class="hero">
-      <div class="eyebrow">EchoSpaceAR • Python Pipeline • Refactor</div>
-      <h1>Readable code, same runtime behavior.</h1>
+      <div class="eyebrow">EchoSpaceAR • Unity + Python • Audio Architecture</div>
+      <h1>From raw sound to live environmental guidance.</h1>
       <p class="lead">
-        This refactor keeps the original Unity-facing workflow intact, but replaces the old single-file
-        `Pipeline.py` with a cleaner runtime layout. The goal was simple: preserve what the system does,
-        while making it much easier to understand, extend, and debug.
+        EchoSpaceAR is a two-sided audio system. Unity captures sound and presents the user experience,
+        while the Python server performs live signal analysis, sound classification, speech transcription,
+        and event packaging. This page maps the full route clearly, from microphone frames to user-facing cues.
       </p>
 
       <div class="hero-grid">
-        <div class="metrics">
-          <article class="metric">
-            <strong>1</strong>
-            Entry point stays the same: `Pipeline.py`.
+        <div class="stats-grid">
+          <article class="mini-panel stat">
+            <strong>3</strong>
+            Core HTTP endpoints connect Unity clients with the analysis backend.
           </article>
-          <article class="metric">
-            <strong>7</strong>
-            Focused runtime modules under `pipeline_runtime/`.
+          <article class="mini-panel stat">
+            <strong>4</strong>
+            Main analysis lanes run in parallel: SPL, YAMNet, Whisper, and Gemini.
           </article>
-          <article class="metric">
-            <strong>0</strong>
-            Changes to `Android` and `Quest2_3`.
+          <article class="mini-panel stat">
+            <strong>2</strong>
+            Unity fronts are represented here: Android and Quest 2/3 experiences.
           </article>
         </div>
 
-        <aside class="callout">
-          <h3>Refactor rule</h3>
-          <p>
-            Behavior first. The refactor targets naming, structure, comments, duplicate removal, and
-            helper extraction. Audio flow, HTTP contracts, and model integration remain aligned with the
-            original pipeline.
-          </p>
+        <aside class="mini-panel hero-note">
+          <div>
+            <h3>Primary runtime path</h3>
+            <p>
+              Unity sends float32 PCM chunks to the Python bridge. The server fans the same stream into
+              multiple workers, then returns structured events that Unity can poll and render as accessible cues.
+            </p>
+          </div>
+          <div class="path">Python_Pipeline/server</div>
         </aside>
       </div>
     </section>
 
     <section>
-      <div class="section-header">
+      <div class="section-head">
         <div>
-          <div class="chip">Runtime Flow</div>
-          <h2>How the pipeline moves audio</h2>
+          <div class="chip">System Map</div>
+          <h2>Unity and Python as one pipeline</h2>
         </div>
         <p>
-          Unity still sends chunks to the HTTP bridge. The bridge pushes audio into the visualizer, and
-          the visualizer fans the same stream into SPL plotting, YAMNet classification, Whisper STT, and
-          optional Gemini summaries.
+          The project is easiest to understand as a round-trip loop: Unity records and displays, Python analyzes
+          and summarizes, then Unity pulls the resulting events back into the interface layer.
         </p>
       </div>
 
-      <div class="flow">
-        <article class="flow-step">
-          <span>1</span>
-          <h3>Unity upload</h3>
-          <p>`/audio_chunk` receives float32 PCM frames and forwards them to the registered sink.</p>
+      <div class="panel">
+        <div class="system-grid">
+          <div class="stack">
+            <article class="stack-node unity">
+              <strong>Android</strong>
+              <p>Unity mobile experience. Captures audio, packages frames, and renders user-facing feedback on handheld devices.</p>
+            </article>
+            <article class="stack-node unity">
+              <strong>Quest2_3</strong>
+              <p>Unity immersive experience. Uses the same event model for VR/AR presentation and interaction.</p>
+            </article>
+            <article class="stack-node unity">
+              <strong>Unity Networking Layer</strong>
+              <p>Calls <code>/client_hello</code>, pushes <code>/audio_chunk</code>, and polls <code>/events</code>.</p>
+            </article>
+          </div>
+
+          <div class="center-diagram">
+            <svg viewBox="0 0 640 360" aria-label="EchoSpaceAR architecture diagram" role="img">
+              <defs>
+                <linearGradient id="boxA" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#edf8f6" />
+                  <stop offset="100%" stop-color="#ffffff" />
+                </linearGradient>
+                <linearGradient id="boxB" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#fff4e7" />
+                  <stop offset="100%" stop-color="#ffffff" />
+                </linearGradient>
+                <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+                  <path d="M0,0 L12,6 L0,12 Z" fill="#4b5b58"></path>
+                </marker>
+              </defs>
+
+              <rect x="24" y="42" width="156" height="78" rx="24" fill="url(#boxB)" stroke="rgba(57,40,25,0.14)"></rect>
+              <text x="102" y="76" text-anchor="middle" font-size="20" fill="#2a2118" font-family="Avenir Next">Unity Input</text>
+              <text x="102" y="100" text-anchor="middle" font-size="13" fill="#645646" font-family="Avenir Next">Mic capture • PCM chunks • session id</text>
+
+              <rect x="242" y="42" width="156" height="78" rx="24" fill="url(#boxA)" stroke="rgba(57,40,25,0.14)"></rect>
+              <text x="320" y="76" text-anchor="middle" font-size="20" fill="#2a2118" font-family="Avenir Next">HTTP Bridge</text>
+              <text x="320" y="100" text-anchor="middle" font-size="13" fill="#645646" font-family="Avenir Next">/client_hello • /audio_chunk</text>
+
+              <rect x="460" y="42" width="156" height="78" rx="24" fill="url(#boxA)" stroke="rgba(57,40,25,0.14)"></rect>
+              <text x="538" y="76" text-anchor="middle" font-size="20" fill="#2a2118" font-family="Avenir Next">Visualizer Core</text>
+              <text x="538" y="100" text-anchor="middle" font-size="13" fill="#645646" font-family="Avenir Next">Queues • plot • worker dispatch</text>
+
+              <rect x="56" y="206" width="122" height="88" rx="24" fill="#ffffff" stroke="rgba(57,40,25,0.14)"></rect>
+              <text x="117" y="238" text-anchor="middle" font-size="18" fill="#1d4d6c" font-family="Avenir Next">SPL Lane</text>
+              <text x="117" y="262" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">RMS dBFS</text>
+              <text x="117" y="279" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">live chart</text>
+
+              <rect x="198" y="206" width="122" height="88" rx="24" fill="#ffffff" stroke="rgba(57,40,25,0.14)"></rect>
+              <text x="259" y="238" text-anchor="middle" font-size="18" fill="#0f766e" font-family="Avenir Next">YAMNet</text>
+              <text x="259" y="262" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">top labels</text>
+              <text x="259" y="279" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">event confidence</text>
+
+              <rect x="340" y="206" width="122" height="88" rx="24" fill="#ffffff" stroke="rgba(57,40,25,0.14)"></rect>
+              <text x="401" y="238" text-anchor="middle" font-size="18" fill="#d97706" font-family="Avenir Next">Whisper</text>
+              <text x="401" y="262" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">speech gate</text>
+              <text x="401" y="279" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">rolling transcript</text>
+
+              <rect x="482" y="206" width="122" height="88" rx="24" fill="#ffffff" stroke="rgba(57,40,25,0.14)"></rect>
+              <text x="543" y="238" text-anchor="middle" font-size="18" fill="#d9485f" font-family="Avenir Next">Gemini</text>
+              <text x="543" y="262" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">window summary</text>
+              <text x="543" y="279" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">user message</text>
+
+              <path d="M180 81 H232" stroke="#4b5b58" stroke-width="3" fill="none" marker-end="url(#arrow)"></path>
+              <path d="M398 81 H450" stroke="#4b5b58" stroke-width="3" fill="none" marker-end="url(#arrow)"></path>
+              <path d="M538 120 V188" stroke="#4b5b58" stroke-width="3" fill="none" marker-end="url(#arrow)"></path>
+              <path d="M538 188 H117" stroke="#4b5b58" stroke-width="2.5" fill="none" marker-end="url(#arrow)"></path>
+              <path d="M538 188 H259" stroke="#4b5b58" stroke-width="2.5" fill="none" marker-end="url(#arrow)"></path>
+              <path d="M538 188 H401" stroke="#4b5b58" stroke-width="2.5" fill="none" marker-end="url(#arrow)"></path>
+              <path d="M538 188 V196" stroke="#4b5b58" stroke-width="2.5" fill="none" marker-end="url(#arrow)"></path>
+              <path d="M117 314 H590 Q616 314 616 288 V154" stroke="#c26c07" stroke-width="3" fill="none" stroke-dasharray="8 8" marker-end="url(#arrow)"></path>
+              <text x="562" y="172" text-anchor="end" font-size="12" fill="#c26c07" font-family="Avenir Next">structured events back to Unity</text>
+            </svg>
+          </div>
+
+          <div class="stack">
+            <article class="stack-node python">
+              <strong>Python HTTP Bridge</strong>
+              <p>Decodes base64 float32 PCM, associates session ids, and forwards audio into the runtime.</p>
+            </article>
+            <article class="stack-node python">
+              <strong>Python Analysis Runtime</strong>
+              <p>Runs queues, plotting, STT gating, classification windows, logging, and optional LLM windows.</p>
+            </article>
+            <article class="stack-node return">
+              <strong>Unity Event Rendering</strong>
+              <p>Consumes YAMNet, STT, and LLM outputs to drive accessible UI messages and scene reactions.</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div>
+          <div class="chip">Operational Flow</div>
+          <h2>Step-by-step runtime sequence</h2>
+        </div>
+        <p>
+          Each lane consumes the same incoming audio, but they operate with different window sizes and goals.
+          That separation is what makes the system responsive while still producing richer context.
+        </p>
+      </div>
+
+      <div class="flow-grid">
+        <article class="flow-card">
+          <div class="num">1</div>
+          <h3>Client hello</h3>
+          <p>Unity opens a session and identifies itself so audio can start flowing into the backend.</p>
         </article>
-        <article class="flow-step">
-          <span>2</span>
-          <h3>Live SPL</h3>
-          <p>The visualizer computes block RMS dBFS and keeps the live matplotlib graph updated.</p>
+        <article class="flow-card">
+          <div class="num">2</div>
+          <h3>Chunk upload</h3>
+          <p>Audio arrives as base64-encoded float32 PCM and is decoded back into a mono numpy stream.</p>
         </article>
-        <article class="flow-step">
-          <span>3</span>
-          <h3>YAMNet</h3>
-          <p>Background workers build rolling windows, infer label probabilities, and publish events.</p>
+        <article class="flow-card">
+          <div class="num">3</div>
+          <h3>Queue fan-out</h3>
+          <p>The visualizer distributes the same chunk to SPL plotting, YAMNet inference, and STT buffering.</p>
         </article>
-        <article class="flow-step">
-          <span>4</span>
-          <h3>Whisper</h3>
-          <p>Speech-gated sessions use pre-roll buffering so short utterances are not clipped.</p>
+        <article class="flow-card">
+          <div class="num">4</div>
+          <h3>Sound detection</h3>
+          <p>YAMNet builds rolling windows and emits top labels such as speech, siren, horn, music, or glass break.</p>
         </article>
-        <article class="flow-step">
-          <span>5</span>
-          <h3>Gemini</h3>
-          <p>Classifier and STT windows can be summarized into short user-facing environment messages.</p>
+        <article class="flow-card">
+          <div class="num">5</div>
+          <h3>Speech decoding</h3>
+          <p>Whisper uses a speech gate and pre-roll so transcripts are generated only when spoken content is likely present.</p>
+        </article>
+        <article class="flow-card">
+          <div class="num">6</div>
+          <h3>Context delivery</h3>
+          <p>Gemini can summarize recent sound and speech windows, and Unity polls those events to inform the user.</p>
         </article>
       </div>
     </section>
 
     <section>
-      <div class="section-header">
+      <div class="section-head">
         <div>
-          <div class="chip">Module Map</div>
-          <h2>What each file owns now</h2>
+          <div class="chip">Python Runtime</div>
+          <h2>Detailed view of the Python pipeline</h2>
         </div>
         <p>
-          The new shape is intentionally boring in a good way: each file has one clear responsibility,
-          so future edits do not require reopening a giant mixed-purpose script.
+          The Python side is intentionally split into dedicated lanes. Each lane owns one kind of processing,
+          but they all coordinate through the visualizer and the HTTP event bridge.
         </p>
       </div>
 
-      <div class="cards">
-        <article class="module">
-          <small>Launcher</small>
+      <div class="lane-grid">
+        <article class="lane-card">
+          <div class="lane-accent"></div>
+          <h3>Ingestion Lane</h3>
+          <p>The bridge receives Unity chunks, decodes them, normalizes them into mono float32 arrays, and forwards them to the registered sink.</p>
+          <ul>
+            <li>Session-aware event storage</li>
+            <li>Audio sink registration for Unity mode</li>
+            <li>Shared entry point into the runtime queues</li>
+          </ul>
+        </article>
+
+        <article class="lane-card">
+          <div class="lane-accent"></div>
+          <h3>Signal Lane</h3>
+          <p>The visualizer computes RMS dBFS continuously for the live matplotlib view and keeps short rolling histories for the UI.</p>
+          <ul>
+            <li>Low-latency level updates</li>
+            <li>Device selection and sample-rate handling</li>
+            <li>Window assembly for downstream workers</li>
+          </ul>
+        </article>
+
+        <article class="lane-card">
+          <div class="lane-accent"></div>
+          <h3>Recognition Lane</h3>
+          <p>YAMNet classifies acoustic context, while Whisper activates only when speech probability is strong enough to justify transcription.</p>
+          <ul>
+            <li>Reduced-label or full YAMNet support</li>
+            <li>Speech gating with hysteresis</li>
+            <li>Pre-roll buffering to preserve utterance starts</li>
+          </ul>
+        </article>
+
+        <article class="lane-card">
+          <div class="lane-accent"></div>
+          <h3>Interpretation Lane</h3>
+          <p>Gemini receives compact windows of recent STT text and classifier events, then produces short environment summaries and alerts.</p>
+          <ul>
+            <li>Window-based prompt building</li>
+            <li>JSON-only output parsing</li>
+            <li>Summary and important-event packaging</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <div class="panel timeline-panel">
+        <div class="timeline-head">
+          <div class="chip">Timeline View</div>
+          <h2>How the windows overlap in time</h2>
+          <p>
+            Not every subsystem reacts on the same cadence. This staggered structure allows fast sound feedback,
+            slightly slower speech decoding, and broader context summaries without blocking the stream.
+          </p>
+        </div>
+
+        <svg viewBox="0 0 1120 360" aria-label="Pipeline timeline view" role="img">
+          <defs>
+            <linearGradient id="timelineBg" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#fffaf4"></stop>
+              <stop offset="100%" stop-color="#f6f9f8"></stop>
+            </linearGradient>
+          </defs>
+          <rect x="18" y="18" width="1084" height="324" rx="28" fill="url(#timelineBg)" stroke="rgba(57,40,25,0.12)"></rect>
+
+          <g font-family="Avenir Next" fill="#645646" font-size="14">
+            <text x="82" y="86">Unity chunks</text>
+            <text x="82" y="146">SPL stream</text>
+            <text x="82" y="206">YAMNet windows</text>
+            <text x="82" y="266">Whisper session</text>
+            <text x="82" y="326">Gemini summary</text>
+          </g>
+
+          <g stroke="rgba(57,40,25,0.15)" stroke-width="1">
+            <line x1="210" y1="60" x2="1040" y2="60"></line>
+            <line x1="210" y1="120" x2="1040" y2="120"></line>
+            <line x1="210" y1="180" x2="1040" y2="180"></line>
+            <line x1="210" y1="240" x2="1040" y2="240"></line>
+            <line x1="210" y1="300" x2="1040" y2="300"></line>
+          </g>
+
+          <g font-family="Avenir Next" fill="#645646" font-size="12">
+            <text x="230" y="42">t-5s</text>
+            <text x="390" y="42">t-4s</text>
+            <text x="550" y="42">t-3s</text>
+            <text x="710" y="42">t-2s</text>
+            <text x="870" y="42">t-1s</text>
+            <text x="1018" y="42">now</text>
+          </g>
+
+          <g fill="#d97706">
+            <rect x="230" y="70" width="54" height="18" rx="9"></rect>
+            <rect x="292" y="70" width="54" height="18" rx="9"></rect>
+            <rect x="354" y="70" width="54" height="18" rx="9"></rect>
+            <rect x="416" y="70" width="54" height="18" rx="9"></rect>
+            <rect x="478" y="70" width="54" height="18" rx="9"></rect>
+            <rect x="540" y="70" width="54" height="18" rx="9"></rect>
+            <rect x="602" y="70" width="54" height="18" rx="9"></rect>
+            <rect x="664" y="70" width="54" height="18" rx="9"></rect>
+            <rect x="726" y="70" width="54" height="18" rx="9"></rect>
+            <rect x="788" y="70" width="54" height="18" rx="9"></rect>
+            <rect x="850" y="70" width="54" height="18" rx="9"></rect>
+            <rect x="912" y="70" width="54" height="18" rx="9"></rect>
+            <rect x="974" y="70" width="54" height="18" rx="9"></rect>
+          </g>
+
+          <path d="M230 130 C310 92, 392 160, 470 122 S628 104, 710 132 S862 170, 1040 116" fill="none" stroke="#1d4d6c" stroke-width="4"></path>
+
+          <g fill="#0f766e">
+            <rect x="350" y="188" width="165" height="28" rx="14"></rect>
+            <rect x="530" y="188" width="165" height="28" rx="14"></rect>
+            <rect x="710" y="188" width="165" height="28" rx="14"></rect>
+            <rect x="890" y="188" width="150" height="28" rx="14"></rect>
+          </g>
+
+          <g fill="#d9485f">
+            <rect x="420" y="248" width="390" height="34" rx="17"></rect>
+          </g>
+          <g fill="#ffffff" font-family="Avenir Next" font-size="13">
+            <text x="615" y="270" text-anchor="middle">speech gate open + pre-roll + rolling decode</text>
+          </g>
+
+          <g fill="#1d4d6c">
+            <rect x="718" y="308" width="210" height="28" rx="14"></rect>
+          </g>
+          <g fill="#ffffff" font-family="Avenir Next" font-size="13">
+            <text x="823" y="327" text-anchor="middle">recent sound + transcript summary window</text>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div>
+          <div class="chip">Folder Guide</div>
+          <h2>What the major folders are responsible for</h2>
+        </div>
+        <p>
+          These folders represent the system in layers: Unity experiences at the edge, shared audio analysis in Python,
+          and runtime assets plus generated outputs around that core.
+        </p>
+      </div>
+
+      <div class="folder-grid">
+        <article class="folder-card">
+          <div class="folder-top">
+            <h3>Android</h3>
+            <span class="tag">Unity client</span>
+          </div>
+          <p>The Android Unity project packages the mobile-facing experience. It is responsible for capture, transport, and how detected events are presented on a phone or tablet.</p>
+          <ul>
+            <li>Gameplay and UI scene logic</li>
+            <li>Microphone input on Android hardware</li>
+            <li>Networking calls to the Python backend</li>
+          </ul>
+        </article>
+
+        <article class="folder-card">
+          <div class="folder-top">
+            <h3>Quest2_3</h3>
+            <span class="tag">Unity XR client</span>
+          </div>
+          <p>The Meta Quest project contains the immersive side of the product. It can consume the same backend event stream while placing cues inside a spatial interface.</p>
+          <ul>
+            <li>XR scenes and interaction flow</li>
+            <li>Quest-specific deployment assets</li>
+            <li>Accessibility feedback inside VR/AR</li>
+          </ul>
+        </article>
+
+        <article class="folder-card">
+          <div class="folder-top">
+            <h3>Python_Pipeline/server</h3>
+            <span class="tag">Analysis backend</span>
+          </div>
+          <p>This is the runtime center of the project. It receives audio from Unity, coordinates analysis workers, stores logs, and exposes event endpoints.</p>
+          <ul>
+            <li>HTTP bridge and event store</li>
+            <li>Live audio analysis runtime</li>
+            <li>Models, logs, and developer docs</li>
+          </ul>
+        </article>
+
+        <article class="folder-card">
+          <div class="folder-top">
+            <h3>pipeline_runtime</h3>
+            <span class="tag">Core package</span>
+          </div>
+          <p>The internal Python package separates configuration, device utilities, model integrations, helper functions, and the visualizer orchestration layer.</p>
+          <ul>
+            <li>Cleaner ownership per module</li>
+            <li>Shorter files for faster navigation</li>
+            <li>Shared helpers used across runtime lanes</li>
+          </ul>
+        </article>
+
+        <article class="folder-card">
+          <div class="folder-top">
+            <h3>models + reduced_yamnet_savedmodel</h3>
+            <span class="tag">Model assets</span>
+          </div>
+          <p>This area holds the reduced YAMNet label metadata and the exported SavedModel/TFLite artifacts used by the classifier lane.</p>
+          <ul>
+            <li>Reduced label mapping</li>
+            <li>SavedModel export output</li>
+            <li>Lightweight deployment-friendly assets</li>
+          </ul>
+        </article>
+
+        <article class="folder-card">
+          <div class="folder-top">
+            <h3>docs + logs</h3>
+            <span class="tag">Support material</span>
+          </div>
+          <p>The docs folder explains the architecture for humans, while the logs folder captures classifications, transcripts, and LLM summaries for debugging and evaluation.</p>
+          <ul>
+            <li>Architecture reference page</li>
+            <li>CSV and JSONL outputs</li>
+            <li>Observation trail for testing runs</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div>
+          <div class="chip">Key Files</div>
+          <h2>Important files inside the Python server</h2>
+        </div>
+        <p>
+          These files form the practical backbone of the runtime. Together they make the server easier to read,
+          easier to maintain, and easier to explain to someone new joining the project.
+        </p>
+      </div>
+
+      <div class="module-grid">
+        <article class="module-card">
           <h3>Pipeline.py</h3>
-          <p>A thin compatibility entry point that simply calls the new runtime package.</p>
+          <p>The stable entry script. It delegates startup into the runtime package so existing launch commands remain simple.</p>
         </article>
-        <article class="module">
-          <small>Configuration</small>
-          <h3>pipeline_runtime/config.py</h3>
-          <p>Central constants, environment loading, optional dependency flags, and path resolution.</p>
-        </article>
-        <article class="module">
-          <small>Audio I/O</small>
-          <h3>pipeline_runtime/device_utils.py</h3>
-          <p>Audio device listing, default-device selection, and sample-rate helpers.</p>
-        </article>
-        <article class="module">
-          <small>Models</small>
-          <h3>classification.py + transcription.py + llm.py</h3>
-          <p>Each model integration now has its own class and its own readable control flow.</p>
-        </article>
-        <article class="module">
-          <small>Orchestration</small>
-          <h3>pipeline_runtime/visualizer.py</h3>
-          <p>Owns queues, worker threads, plotting, session ids, and event publication.</p>
-        </article>
-        <article class="module">
-          <small>Networking</small>
+
+        <article class="module-card">
           <h3>pipeline_http_bridge.py</h3>
-          <p>Still exposes the same Unity endpoints, but now with smaller handler methods and cleaner event writes.</p>
+          <p>Owns the Unity-facing HTTP endpoints, session event storage, chunk decoding, and event retrieval flow.</p>
+        </article>
+
+        <article class="module-card">
+          <h3>config.py</h3>
+          <p>Collects environment loading, runtime constants, feature toggles, directory paths, and optional dependency detection.</p>
+        </article>
+
+        <article class="module-card">
+          <h3>visualizer.py</h3>
+          <p>The orchestration hub. It manages queues, the SPL graph, classifier windows, STT publishing, and optional summary windows.</p>
+        </article>
+
+        <article class="module-card">
+          <h3>classification.py + build_reduced_yamnet.py</h3>
+          <p>One file loads the runtime classifier, while the other creates the reduced YAMNet model and label mapping used by deployment.</p>
+        </article>
+
+        <article class="module-card">
+          <h3>transcription.py + llm.py</h3>
+          <p>These handle language-aware layers: rolling Whisper transcription and compact Gemini interpretation windows.</p>
         </article>
       </div>
-    </section>
-
-    <section class="section-grid">
-      <article class="card">
-        <div class="chip">Before</div>
-        <h3>The old pain points</h3>
-        <ul>
-          <li>A very large `Pipeline.py` mixed setup, workers, UI, STT, YAMNet, LLM logic, and dead duplicate code.</li>
-          <li>Helper behavior was hard to locate because everything lived in one runtime file.</li>
-          <li>Understanding the HTTP bridge and runtime flow required jumping through long unrelated sections.</li>
-        </ul>
-      </article>
-
-      <article class="card">
-        <div class="chip">After</div>
-        <h3>The refactor wins</h3>
-        <ul>
-          <li>The entrypoint remains stable while the implementation becomes modular.</li>
-          <li>Short English comments now explain intent where the code was previously dense.</li>
-          <li>Duplicate dead code is removed, and repeated low-level helpers are centralized.</li>
-        </ul>
-      </article>
     </section>
 
     <section>
-      <div class="section-header">
+      <div class="section-head">
         <div>
-          <div class="chip">Structure Snapshot</div>
-          <h2>Folder view after refactor</h2>
+          <div class="chip">Outputs</div>
+          <h2>What the pipeline emits back into the system</h2>
         </div>
         <p>
-          The runtime is still local-script friendly, but it now has a real internal layout that is easy
-          to explain to another developer in one screen.
+          The backend is not just a classifier. It produces several event shapes that Unity can combine into accessible, contextual feedback.
         </p>
       </div>
 
-      <pre><code>Python_Pipeline/server/
-├── Pipeline.py
-├── pipeline_http_bridge.py
-├── audio_buffer.py
-├── build_reduced_yamnet.py
-├── load_env.py
-├── README.md
-├── docs/
-│   └── python_pipeline_refactor.html
-└── pipeline_runtime/
-    ├── __init__.py
-    ├── main.py
-    ├── config.py
-    ├── device_utils.py
-    ├── utils.py
-    ├── classification.py
-    ├── transcription.py
-    ├── llm.py
-    └── visualizer.py</code></pre>
-    </section>
-
-    <section>
-      <div class="section-header">
-        <div>
-          <div class="chip">Stable Contracts</div>
-          <h2>What did not change</h2>
-        </div>
-        <p>
-          This matters as much as the cleanup itself. The refactor was designed to be safe for the rest
-          of the project, especially the Unity side.
-        </p>
-      </div>
-
-      <div class="cards">
-        <article class="card">
-          <h3>Same launcher</h3>
-          <p>Existing scripts can still run `python Pipeline.py` without learning a new command.</p>
+      <div class="legend-grid">
+        <article class="legend-card">
+          <h3>YAMNet events</h3>
+          <p>Top labels, dominant class, confidence, and SPL information for the analyzed window.</p>
         </article>
-        <article class="card">
-          <h3>Same endpoints</h3>
-          <p>`/client_hello`, `/audio_chunk`, and `/events` keep their original job and response style.</p>
+        <article class="legend-card">
+          <h3>STT events</h3>
+          <p>Transcribed speech segments with effective window length, language, and timestamps.</p>
         </article>
-        <article class="card">
-          <h3>Same core behavior</h3>
-          <p>Unity audio is still classified, speech can still be transcribed, and LLM summaries still build on those windows.</p>
+        <article class="legend-card">
+          <h3>LLM events</h3>
+          <p>Short environment summaries and user messages built from recent sound and speech context.</p>
         </article>
       </div>
     </section>
 
     <p class="footer">
-      Open this file locally in a browser to get a quick architectural tour of the refactored Python pipeline.
+      Open this page locally in a browser for a visual tour of the EchoSpaceAR Unity-to-Python audio system.
     </p>
   </main>
 </body>
