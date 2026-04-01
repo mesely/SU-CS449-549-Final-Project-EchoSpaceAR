@@ -9,30 +9,6 @@ from pathlib import Path
 from load_env import load_env
 
 
-def _env_bool(name: str, default: bool) -> bool:
-    raw = os.environ.get(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _env_float(name: str, default: float) -> float:
-    raw = os.environ.get(name)
-    if raw is None:
-        return default
-    try:
-        return float(raw)
-    except ValueError:
-        return default
-
-
-def _env_str_set(name: str, default: tuple[str, ...]) -> set[str]:
-    raw = os.environ.get(name)
-    if not raw:
-        return set(default)
-    return {token.strip() for token in raw.split(",") if token.strip()}
-
-
 # Load environment variables before optional integrations initialize.
 SERVER_DIR = Path(__file__).resolve().parent.parent
 load_env(".env")
@@ -141,24 +117,8 @@ CLASSIFIER_ENABLED = TF_AVAILABLE
 
 DATA_COLLECTION_MODE = True
 WIDE_CSV_PATH = os.path.join(LOG_DIR, "classification_probs.csv")
-DECISION_CSV_PATH = os.path.join(LOG_DIR, "decision_log.csv")
 TOPK_OVERLAY = 5
-DECISION_TOPK = 5
 PRINT_ALL_TO_CONSOLE = False
-
-
-PLOT_UPDATE_INTERVAL_S = _env_float("PLOT_UPDATE_INTERVAL_S", 0.1)
-CLASSIFY_WINDOW_S = _env_float("CLASSIFY_WINDOW_S", 1.0)
-CLASSIFY_HOP_S = _env_float("CLASSIFY_HOP_S", 0.5)
-
-
-# mono + stereo: mono baseline'i bozma, stereo gelirse side-channel'i yasat.
-STEREO_SIDE_CHANNEL_ENABLED = _env_bool("STEREO_SIDE_CHANNEL_ENABLED", True)
-SPATIAL_CENTER_ILD_DB = _env_float("SPATIAL_CENTER_ILD_DB", 1.5)
-SPATIAL_DIRECTION_MIN_ILD_DB = _env_float("SPATIAL_DIRECTION_MIN_ILD_DB", 3.0)
-SPATIAL_MAX_ILD_DB = _env_float("SPATIAL_MAX_ILD_DB", 12.0)
-SPATIAL_MAX_GCC_DELAY_S = _env_float("SPATIAL_MAX_GCC_DELAY_S", 0.0015)
-SPATIAL_CENTER_CORRELATION = _env_float("SPATIAL_CENTER_CORRELATION", 0.85)
 
 
 STT_ENABLED = True
@@ -172,12 +132,10 @@ STT_CSV_PATH = os.path.join(LOG_DIR, "transcription_log.csv")
 
 SPEECH_GATE_ENABLED = True
 SPEECH_LABEL = "speech"
-MODEL_SILENCE_LABEL = "Silence"
-SPEECH_ON_THRESH = _env_float("SPEECH_ON_THRESH", 0.40)
-SPEECH_OFF_THRESH = _env_float("SPEECH_OFF_THRESH", 0.28)
-SPEECH_MIN_ON_S = _env_float("SPEECH_MIN_ON_S", 0.40)
-SPEECH_MIN_OFF_S = _env_float("SPEECH_MIN_OFF_S", 0.40)
-SPEECH_ENERGY_MARGIN_DB = _env_float("SPEECH_ENERGY_MARGIN_DB", 4.0)
+SPEECH_ON_THRESH = 0.40
+SPEECH_OFF_THRESH = 0.30
+SPEECH_MIN_ON_S = 0.50
+SPEECH_MIN_OFF_S = 0.00
 WHISPER_LANGUAGE = "en"
 REQUIRE_TOP_IS_SPEECH = False
 
@@ -217,57 +175,6 @@ IMPORTANT_SOUND_THRESH = 0.55
 SOUND_LLM_WINDOW_S = 5.0
 SOUND_LLM_COOLDOWN_S = 10.0
 GLOBAL_LLM_COOLDOWN_S = 2.0
-
-
-# EMA + hysteresis + OOD gate: ham p(c|z) skorlarini HUD kararina tasiyan katman.
-DECISION_EMA_LAMBDA = _env_float("DECISION_EMA_LAMBDA", 0.65)
-DECISION_ENTER_THRESH = _env_float("DECISION_ENTER_THRESH", 0.56)
-DECISION_EXIT_THRESH = _env_float("DECISION_EXIT_THRESH", 0.38)
-DECISION_MIN_HOLD_S = _env_float("DECISION_MIN_HOLD_S", 1.0)
-DECISION_SILENCE_MARGIN_DB = _env_float("DECISION_SILENCE_MARGIN_DB", 6.0)
-DECISION_IDLE_CONF_THRESH = _env_float("DECISION_IDLE_CONF_THRESH", 0.42)
-DECISION_OOD_ENTROPY_THRESH = _env_float("DECISION_OOD_ENTROPY_THRESH", 0.86)
-DECISION_OOD_MIN_TOP_PROB = _env_float("DECISION_OOD_MIN_TOP_PROB", 0.30)
-DECISION_OOD_MIN_MARGIN = _env_float("DECISION_OOD_MIN_MARGIN", 0.05)
-DECISION_PRIORITY_SWITCH_MARGIN = _env_float("DECISION_PRIORITY_SWITCH_MARGIN", 0.08)
-DECISION_NOISE_FLOOR_INIT_DBFS = _env_float("DECISION_NOISE_FLOOR_INIT_DBFS", -72.0)
-
-
-IDLE_LABELS = _env_str_set(
-    "IDLE_LABELS",
-    (
-        "traffic_road",
-        "wind_rain",
-        "engine_motion",
-        "crowd",
-        "Silence",
-    ),
-)
-NON_ACTIONABLE_LABELS = _env_str_set(
-    "NON_ACTIONABLE_LABELS",
-    (
-        "speech",
-        "music",
-        "dog",
-        "cat",
-        "bird",
-        "phone_ring",
-        "car_bus_truck",
-        "rail",
-        "aircraft",
-        "other",
-    ),
-)
-ACTIONABLE_PRIORITY_MAP = {
-    "sirens": "critical",
-    "explosion_gunshot": "critical",
-    "vehicle_horn": "high",
-    "glass_break": "high",
-    "alarms_buzzer": "high",
-    "door_knock": "medium",
-}
-ACTIONABLE_LABELS = set(ACTIONABLE_PRIORITY_MAP)
-CRITICAL_LABELS = {label for label, priority in ACTIONABLE_PRIORITY_MAP.items() if priority == "critical"}
 
 
 DEBUG_STT = False

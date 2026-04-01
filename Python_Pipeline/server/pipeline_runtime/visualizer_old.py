@@ -10,21 +10,10 @@ import sys
 import threading
 import time
 from collections import deque
-from textwrap import shorten
 
-import matplotlib.pyplot as plt
-import numpy as np
-import sounddevice as sd
-from matplotlib.animation import FuncAnimation
-
-from pipeline_http_bridge import push_stt_event, push_yamnet_event
-
-from .classification import YamnetClassifier
 from .config import (
     CLASSIFIER_ENABLED,
-    CLASSIFY_HOP_S,
     DATA_COLLECTION_MODE,
-    DECISION_CSV_PATH,
     DECODE_HOP_S,
     GLOBAL_LLM_COOLDOWN_S,
     IMPORTANT_SOUND_LABELS,
@@ -32,16 +21,12 @@ from .config import (
     LLM_ENABLED,
     LOG_DIR,
     MAX_SESSION_S,
-    PLOT_UPDATE_INTERVAL_S,
     PRINT_ALL_TO_CONSOLE,
     REQUIRE_TOP_IS_SPEECH,
     SOUND_LLM_COOLDOWN_S,
     SOUND_LLM_WINDOW_S,
-    SPEECH_ENERGY_MARGIN_DB,
     SPEECH_GATE_ENABLED,
     SPEECH_LABEL,
-    SPEECH_MIN_OFF_S,
-    SPEECH_MIN_ON_S,
     SPEECH_OFF_THRESH,
     SPEECH_ON_THRESH,
     STT_CSV_PATH,
@@ -50,10 +35,17 @@ from .config import (
     TOPK_OVERLAY,
     WIDE_CSV_PATH,
 )
-from .decision_layer import DecisionSnapshot, PriorityDecisionLayer
+import matplotlib.pyplot as plt
+import numpy as np
+import sounddevice as sd
+from matplotlib.animation import FuncAnimation
+from textwrap import shorten
+
+from pipeline_http_bridge import push_stt_event, push_yamnet_event
+
+from .classification import YamnetClassifier
 from .device_utils import pick_input_device, pick_sample_rate, print_input_devices
 from .llm import GeminiEventAnalyzer
-from .spatial_audio import downmix_to_mono, ensure_frame_major, summarize_spatial_audio
 from .transcription import WhisperTranscriber
 from .utils import unix_to_local_iso
 
@@ -81,7 +73,7 @@ class RealTimeSPLVisualizer:
 
     def __init__(
         self,
-        update_interval_s: float = PLOT_UPDATE_INTERVAL_S,
+        update_interval_s: float = 0.1,
         history_s: float = 20.0,
         min_db: float = -120.0,
         max_db: float = 0.0,
@@ -95,21 +87,18 @@ class RealTimeSPLVisualizer:
         self.min_db = float(min_db)
         self.max_db = float(max_db)
         self.classify_window_s = float(classify_window_s)
-        self.classify_hop_s = float(CLASSIFY_HOP_S)
         self.use_local_mic = use_local_mic
         self.log_csv_path = log_csv_path
         self.session_id = "default"
 
         self._gate_state = "IDLE"
         self._gate_last_change = time.time()
-        self._speech_on_since: float | None = None
-        self._speech_off_since: float | None = None
         self._last_sound_llm_ts = 0.0
         self._last_any_llm_ts = 0.0
         self._zero_blocks_seen = 0
 
         self.q_levels: queue.Queue[tuple[float, float]] = queue.Queue()
-        self.q_audio: queue.Queue[dict] = queue.Queue()
+        self.q_audio: queue.Queue[np.ndarray] = queue.Queue()
         self.max_points = int(np.ceil(self.history_s / self.update_interval_s)) + 10
         self.times: deque[float] = deque(maxlen=self.max_points)
         self.levels: deque[float] = deque(maxlen=self.max_points)
@@ -124,17 +113,11 @@ class RealTimeSPLVisualizer:
 
         self.latest_label: str | None = None
         self.latest_conf: float | None = None
-        self.latest_decision: DecisionSnapshot | None = None
         self._label_lock = threading.Lock()
 
         self.classifier = None
         self.stt = None
         self.llm_analyzer = None
-        self.decision_layer = PriorityDecisionLayer()
-
-        self._latest_samplerate = 48000.0
-        self._latest_channels = 1
-        self._latest_mode_label = "mono"
 
         self._configure_audio_device()
         self._build_plot()
@@ -163,7 +146,6 @@ class RealTimeSPLVisualizer:
         self.device_index, self.device_name = pick_input_device()
         self.samplerate = pick_sample_rate(self.device_index)
         self.stream_samplerate = self.samplerate if self.samplerate else None
-        self._latest_samplerate = float(self.stream_samplerate or 48000.0)
         self.blocksize = (
             None
             if self.stream_samplerate is None
@@ -187,11 +169,9 @@ class RealTimeSPLVisualizer:
         self.line, = self.ax.plot([], [], lw=2)
         self.ax.set_ylim(self.min_db, self.max_db)
         self.ax.set_xlim(-self.history_s, 0.0)
-        title_sr = int(self._latest_samplerate)
+        title_sr = self.stream_samplerate or "default"
         short_name = shorten(self.device_name, width=48)
-        self.ax.set_title(
-            f"Real-Time SPL (RMS dBFS) - {short_name} @ {title_sr} Hz ({self._latest_mode_label})"
-        )
+        self.ax.set_title(f"Real-Time SPL (RMS dBFS) - {short_name} @ {title_sr} Hz (mono)")
         self.ax.set_xlabel("Time (s) relative to now")
         self.ax.set_ylabel("SPL (dBFS)")
         self.ax.grid(True, linestyle="--", alpha=0.4)
@@ -272,7 +252,6 @@ class RealTimeSPLVisualizer:
 
         if self.log_csv_path:
             self._ensure_csv_header()
-        self._ensure_decision_csv_header()
 
     def _initialize_stt(self) -> None:
         self.stt_enabled = STT_ENABLED
@@ -319,92 +298,64 @@ class RealTimeSPLVisualizer:
             self._llm_queue = None
             self.llm_analyzer = None
 
-    def feed_unity_chunk(self, samples: np.ndarray, chunk_info: dict | None = None) -> None:
+    def feed_unity_chunk(self, samples: np.ndarray) -> None:
         """Route Unity audio through the same callback path as local microphone audio."""
-        if samples is None:
+        if samples is None or samples.size == 0:
             return
 
-        chunk_info = chunk_info or {}
         try:
-            channels_hint = int(chunk_info.get("channels") or 1)
-            sample_rate = float(chunk_info.get("samplerate_hz") or self.stream_samplerate or 48000.0)
-            frames = ensure_frame_major(samples, channels_hint=channels_hint)
-            self._route_audio_block(frames, sample_rate)
+            if samples.ndim != 1:
+                samples = samples.reshape(-1)
+            samples = samples.astype(np.float32, copy=False)
+
+            if not self.use_local_mic:
+                self.audio_callback(samples.reshape(-1, 1), samples.shape[0], None, None)
+                return
+
+            self.q_audio.put_nowait(samples.copy())
         except Exception as exc:
-            print(f"[UnityAudio] Failed to route Unity chunk: {exc}")
+            print(f"[UnityAudio] Failed to route samples via audio_callback: {exc}")
 
     def audio_callback(self, indata, frames, time_info, status) -> None:
-        """Capture audio, update SPL, and fan out chunks to background workers."""
+        """Capture mono audio, update SPL, and fan out chunks to background workers."""
         del time_info
         if status:
             print(status, file=sys.stderr)
         if frames <= 0:
             return
 
-        try:
-            frame_block = ensure_frame_major(np.asarray(indata, dtype=np.float32), channels_hint=1)
-            sample_rate = float(self.stream_samplerate or 48000.0)
-            self._route_audio_block(frame_block, sample_rate)
-        except Exception as exc:
-            print(f"[AudioCallback] Failed to process audio block: {exc}")
-
-    def _route_audio_block(self, frames: np.ndarray, sample_rate: float) -> None:
-        """
-        mono + stereo:
-        - mono downmix klasifikasyon ve STT icin korunur
-        - stereo side-channel spatial ozellik olarak saklanir
-        """
-        frame_block = ensure_frame_major(frames)
-        mono = downmix_to_mono(frame_block)
-        if mono.size == 0:
-            return
-
-        self._latest_samplerate = float(sample_rate)
-        self._latest_channels = int(frame_block.shape[1])
-        self._latest_mode_label = "mono + stereo side-channel" if self._latest_channels >= 2 else "mono"
-
-        if np.allclose(mono, 0.0):
+        samples = indata[:, 0]
+        if np.allclose(samples, 0.0):
             self._zero_blocks_seen += 1
         else:
             self._zero_blocks_seen = 0
 
-        rms = np.sqrt(np.mean(mono.astype(np.float64) ** 2) + 1e-9)
+        rms = np.sqrt(np.mean(samples.astype(np.float64) ** 2))
         dbfs = 20.0 * np.log10(rms + 1e-9)
 
         try:
-            self.q_levels.put_nowait((time.monotonic(), float(dbfs)))
+            self.q_levels.put_nowait((time.monotonic(), dbfs))
         except queue.Full:
             pass
 
-        payload = {
-            "ts_unix": time.time(),
-            "sample_rate": float(sample_rate),
-            "channels": int(frame_block.shape[1]),
-            "frames": frame_block.copy(),
-            "mono": mono.copy(),
-        }
-
         if self.classifier_enabled:
             try:
-                self.q_audio.put_nowait(payload)
+                self.q_audio.put_nowait(samples.copy())
             except queue.Full:
                 pass
 
         if self.stt_enabled and self.q_audio_stt is not None:
             try:
-                self.q_audio_stt.put_nowait(mono.copy())
+                self.q_audio_stt.put_nowait(samples.copy())
             except queue.Full:
                 pass
 
     def _classification_worker(self) -> None:
         """Classify rolling audio windows and feed downstream workers."""
         sr_in = float(self.stream_samplerate) if self.stream_samplerate else 48000.0
-        channels_in = 1
-        samples_target = max(1, int(round(sr_in * self.classify_window_s)))
-        hop_samples = max(1, int(round(sr_in * self.classify_hop_s)))
-        buffer_samples = 0
-        samples_since_emit = 0
-        block_buffer: deque[dict] = deque()
+        chunk_buffer: list[np.ndarray] = []
+        samples_target = int(round(sr_in * self.classify_window_s))
+        samples_accum = 0
 
         with self._label_lock:
             self.latest_label = "Ready"
@@ -413,173 +364,109 @@ class RealTimeSPLVisualizer:
 
         while True:
             try:
-                block = self.q_audio.get(timeout=1.0)
+                chunk = self.q_audio.get(timeout=1.0)
             except queue.Empty:
                 continue
 
-            block_sr = float(block["sample_rate"])
-            block_channels = int(block["channels"])
-            if abs(block_sr - sr_in) > 1e-3 or block_channels != channels_in:
-                sr_in = block_sr
-                channels_in = block_channels
-                samples_target = max(1, int(round(sr_in * self.classify_window_s)))
-                hop_samples = max(1, int(round(sr_in * self.classify_hop_s)))
-                buffer_samples = 0
-                samples_since_emit = 0
-                block_buffer.clear()
-
-            block_buffer.append(block)
-            buffer_samples += int(block["mono"].size)
-            samples_since_emit += int(block["mono"].size)
-
-            max_keep = max(samples_target * 4, hop_samples * 6)
-            while buffer_samples > max_keep and len(block_buffer) > 1:
-                old = block_buffer.popleft()
-                buffer_samples -= int(old["mono"].size)
-
-            if buffer_samples < samples_target or samples_since_emit < hop_samples:
+            chunk_buffer.append(chunk)
+            samples_accum += chunk.size
+            if samples_accum < samples_target:
                 continue
 
-            mono_window = self._tail_concat(block_buffer, "mono", samples_target)
-            frames_window = self._tail_concat(block_buffer, "frames", samples_target)
-            if mono_window.size < samples_target:
-                continue
+            audio_window = np.concatenate(chunk_buffer, axis=0)[-samples_target:]
+            chunk_buffer.clear()
+            samples_accum = 0
 
-            samples_since_emit = 0
-            self._process_classification_window(
-                mono_window=mono_window,
-                frames_window=frames_window,
-                sr_in=sr_in,
-                window_end_unix=float(block["ts_unix"]),
-            )
+            self._process_classification_window(audio_window, sr_in)
 
-    def _tail_concat(self, block_buffer: deque[dict], key: str, samples_target: int) -> np.ndarray:
-        parts: list[np.ndarray] = []
-        remaining = int(samples_target)
-        for block in reversed(block_buffer):
-            array = block[key]
-            if array is None or array.size == 0:
-                continue
-            take = min(int(array.shape[0]), remaining)
-            parts.append(array[-take:])
-            remaining -= take
-            if remaining <= 0:
-                break
-
-        if not parts:
-            return np.zeros((0,), dtype=np.float32) if key == "mono" else np.zeros((0, 1), dtype=np.float32)
-
-        return np.concatenate(list(reversed(parts)), axis=0)
-
-    def _process_classification_window(
-        self,
-        mono_window: np.ndarray,
-        frames_window: np.ndarray,
-        sr_in: float,
-        window_end_unix: float,
-    ) -> None:
-        """Run classification, decision smoothing, and publish events."""
-        spl_dbfs = 20.0 * np.log10(float(np.sqrt(np.mean(mono_window.astype(np.float64) ** 2) + 1e-9)) + 1e-9)
+    def _process_classification_window(self, audio_window: np.ndarray, sr_in: float) -> None:
+        """Run classification, update overlays, and publish events."""
+        spl_dbfs = 20.0 * np.log10(float(np.sqrt(np.mean(audio_window**2) + 1e-9)) + 1e-9)
 
         overlay_text = "Classification error"
+        label = "Classification error"
+        conf = 0.0
         top5 = [{"label": "error", "prob": 1.0}]
-        raw_top5 = top5
         dominant_label = "error"
         dominant_prob = 1.0
-        decision_payload = None
-        spatial_payload = None
-        decision: DecisionSnapshot | None = None
+        labels = None
+        probabilities = None
 
         try:
-            labels, probabilities = self.classifier.predict_all(mono_window, int(sr_in))
-            raw_top5 = self._topk(labels, probabilities, TOPK_OVERLAY)
-            spatial = summarize_spatial_audio(frames_window, sr_in)
-            decision = self.decision_layer.update(labels, probabilities, spl_dbfs, spatial, window_end_unix)
-
-            top5 = decision.top5
-            dominant_label = decision.label
-            dominant_prob = decision.confidence
-            overlay_text = self._build_overlay_text(decision)
-            decision_payload = decision.to_dict()
-            spatial_payload = spatial.to_dict()
-
             if DATA_COLLECTION_MODE:
-                self._append_wide_csv_row(window_end_unix, sr_in, labels, probabilities)
+                (
+                    label,
+                    conf,
+                    overlay_text,
+                    top5,
+                    dominant_label,
+                    dominant_prob,
+                    labels,
+                    probabilities,
+                ) = self._run_full_classification(audio_window, int(sr_in))
 
-            if PRINT_ALL_TO_CONSOLE:
-                self._print_probabilities(labels, probabilities)
-
-            self._record_llm_event(window_end_unix, top5)
-            self._maybe_enqueue_sound_llm_window(window_end_unix, top5)
+                now_ts = time.time()
+                self._record_llm_event(now_ts, top5)
+                self._maybe_enqueue_sound_llm_window(now_ts, top5)
+            else:
+                label, conf = self.classifier.predict_top(audio_window, int(sr_in))
+                overlay_text = f"{label} ({int(round(conf * 100))}%)"
+                top5 = [{"label": label, "prob": float(conf)}]
+                dominant_label = label
+                dominant_prob = float(conf)
 
             if SPEECH_GATE_ENABLED and self.stt_enabled:
-                top_is_speech = raw_top5[0]["label"] == SPEECH_LABEL if raw_top5 else False
-                self._update_speech_gate(
-                    speech_prob=decision.speech_prob,
-                    top_is_speech=top_is_speech,
-                    spl_dbfs=spl_dbfs,
-                    sr_in=sr_in,
-                    now_ts=window_end_unix,
-                )
-
-            if raw_top5:
-                self._append_csv_row(
-                    timestamp_unix=window_end_unix,
-                    sr_hz=sr_in,
-                    label=raw_top5[0]["label"],
-                    conf=float(raw_top5[0]["prob"]),
-                )
-            self._append_decision_csv_row(window_end_unix, sr_in, decision)
+                self._update_speech_gate(label, conf, labels, probabilities, sr_in)
         except Exception as exc:
             print(f"[Classifier] Inference error: {exc}")
 
         with self._label_lock:
             self.latest_label = overlay_text
-            self.latest_conf = None
-            self.latest_decision = decision
+            self.latest_conf = None if DATA_COLLECTION_MODE else conf
 
-        self._push_yamnet_event(
-            window_end=window_end_unix,
-            top5=top5,
-            dominant_label=dominant_label,
-            dominant_prob=dominant_prob,
-            spl_dbfs=spl_dbfs,
-            decision_payload=decision_payload,
-            spatial_payload=spatial_payload,
-            raw_top5=raw_top5,
-        )
+        timestamp_unix = time.time()
+        self._append_csv_row(timestamp_unix, sr_in, label, conf)
+        self._push_yamnet_event(timestamp_unix, top5, dominant_label, dominant_prob, spl_dbfs)
 
-    def _topk(self, labels: list[str], probabilities: np.ndarray, limit: int) -> list[dict]:
+    def _run_full_classification(
+        self,
+        audio_window: np.ndarray,
+        input_sr: int,
+    ) -> tuple[str, float, str, list[dict], str, float, list[str], np.ndarray]:
+        """Return the original full-probability classification payload."""
+        labels, probabilities = self.classifier.predict_all(audio_window, input_sr)
         order = np.argsort(probabilities)[::-1]
-        return [
+        overlay_lines = [
+            f"{labels[index]} ({probabilities[index] * 100:.0f}%)"
+            for index in order[: min(TOPK_OVERLAY, len(order))]
+        ]
+        overlay_text = "\n".join(overlay_lines)
+
+        top_index = int(order[0])
+        label = labels[top_index]
+        conf = float(probabilities[top_index])
+        top5 = [
             {"label": labels[index], "prob": float(probabilities[index])}
-            for index in order[: min(limit, len(order))]
+            for index in order[:5]
         ]
 
-    def _print_probabilities(self, labels: list[str], probabilities: np.ndarray) -> None:
-        order = np.argsort(probabilities)[::-1]
-        max_width = max(len(name) for name in labels)
-        print("\n--- probabilities ---")
-        for index in order:
-            print(f"{labels[index]:<{max_width}}  {probabilities[index]:.4f}")
+        if PRINT_ALL_TO_CONSOLE:
+            max_width = max(len(name) for name in labels)
+            print("\n--- probabilities ---")
+            for index in order:
+                print(f"{labels[index]:<{max_width}}  {probabilities[index]:.4f}")
 
-    def _build_overlay_text(self, decision: DecisionSnapshot) -> str:
-        """
-        Arastirma ruhu:
-        - EMA ile p(c|z) yumusat
-        - hysteresis ile flapping'i kes
-        - OOD gate ile bilmediginde sus
-        """
-        head = f"{decision.label} | state={decision.state} | priority={decision.priority}"
-        direction = ""
-        if decision.direction not in {"unknown", ""}:
-            direction = f" | dir={decision.direction}:{decision.direction_confidence:.2f}"
-        stats = (
-            f"p={decision.confidence:.2f} raw={decision.raw_confidence:.2f} "
-            f"H={decision.entropy_norm:.2f} speech={decision.speech_prob:.2f}"
+        self._append_wide_csv_row(time.time(), input_sr, labels, probabilities)
+        return (
+            label,
+            conf,
+            overlay_text,
+            top5,
+            top5[0]["label"],
+            top5[0]["prob"],
+            labels,
+            probabilities,
         )
-        top_lines = [f"{item['label']} ({item['prob'] * 100:.0f}%)" for item in decision.top5[:3]]
-        return "\n".join([head + direction, stats, *top_lines])
 
     def _record_llm_event(self, timestamp_unix: float, top5: list[dict]) -> None:
         """Keep a short rolling buffer of classifier results for LLM windows."""
@@ -640,55 +527,49 @@ class RealTimeSPLVisualizer:
 
     def _update_speech_gate(
         self,
-        speech_prob: float,
-        top_is_speech: bool,
-        spl_dbfs: float,
+        label: str,
+        conf: float,
+        labels: list[str] | None,
+        probabilities: np.ndarray | None,
         sr_in: float,
-        now_ts: float,
     ) -> None:
-        """Use smoothed speech probability + hysteresis to start and stop Whisper sessions."""
-        energy_ok = spl_dbfs >= (self.decision_layer.noise_floor_dbfs + SPEECH_ENERGY_MARGIN_DB)
-        cond_on = speech_prob >= SPEECH_ON_THRESH and energy_ok and (
-            top_is_speech if REQUIRE_TOP_IS_SPEECH else True
-        )
-        cond_off = (speech_prob < SPEECH_OFF_THRESH) or (not energy_ok) or (
+        """Use YAMNet speech probability to start and stop Whisper sessions."""
+        try:
+            if DATA_COLLECTION_MODE and labels is not None and probabilities is not None:
+                speech_index = labels.index(SPEECH_LABEL)
+                speech_prob = float(probabilities[speech_index])
+                top_index = int(np.argmax(probabilities))
+                top_is_speech = labels[top_index] == SPEECH_LABEL
+            else:
+                speech_prob = conf if label == SPEECH_LABEL else 0.0
+                top_is_speech = label == SPEECH_LABEL
+        except Exception:
+            speech_prob = 0.0
+            top_is_speech = False
+
+        cond_on = speech_prob >= SPEECH_ON_THRESH and (top_is_speech if REQUIRE_TOP_IS_SPEECH else True)
+        cond_off = speech_prob < SPEECH_OFF_THRESH or (
             REQUIRE_TOP_IS_SPEECH and not top_is_speech
         )
 
-        if cond_on:
-            if self._speech_on_since is None:
-                self._speech_on_since = now_ts
-            self._speech_off_since = None
-        else:
-            self._speech_on_since = None
-
-        if cond_off:
-            if self._speech_off_since is None:
-                self._speech_off_since = now_ts
-        else:
-            self._speech_off_since = None
-
         if self._gate_state == "IDLE":
-            if self._speech_on_since is not None and (now_ts - self._speech_on_since) >= SPEECH_MIN_ON_S:
+            if cond_on:
                 self._gate_state = "RECORDING"
-                self._gate_last_change = now_ts
                 self.stt.start_session()
                 self.text_stt.set_text("STT: listening...")
             return
 
         if self._gate_state == "RECORDING":
-            if self._speech_off_since is not None and (now_ts - self._speech_off_since) >= SPEECH_MIN_OFF_S:
+            if cond_off:
                 final_text, effective_window = self.stt.stop_session(finalize=True)
                 if final_text:
                     self._stt_publish(final_text, sr_in, effective_window)
                 self.text_stt.set_text("STT: idle")
                 self._gate_state = "COOLDOWN"
-                self._gate_last_change = now_ts
             return
 
         if self._gate_state == "COOLDOWN" and not cond_off:
             self._gate_state = "IDLE"
-            self._gate_last_change = now_ts
 
     def _push_yamnet_event(
         self,
@@ -697,9 +578,6 @@ class RealTimeSPLVisualizer:
         dominant_label: str,
         dominant_prob: float,
         spl_dbfs: float,
-        decision_payload: dict | None,
-        spatial_payload: dict | None,
-        raw_top5: list[dict],
     ) -> None:
         """Publish the current classifier window through the HTTP bridge."""
         try:
@@ -712,9 +590,6 @@ class RealTimeSPLVisualizer:
                 dominant_label=dominant_label,
                 dominant_prob=dominant_prob,
                 spl_dbfs=float(spl_dbfs),
-                decision=decision_payload,
-                spatial=spatial_payload,
-                raw_top5=raw_top5,
             )
         except Exception as exc:
             print(f"[Classifier] Failed to push YAMNet event: {exc}")
@@ -868,16 +743,18 @@ class RealTimeSPLVisualizer:
         if self._zero_blocks_seen >= 5:
             self.ax.set_title("Real-Time SPL (RMS dBFS) - No signal detected (check mic permission / device)")
         else:
+            title_sr = self.stream_samplerate or "default"
             short_name = shorten(self.device_name, width=48)
-            self.ax.set_title(
-                f"Real-Time SPL (RMS dBFS) - {short_name} @ {int(self._latest_samplerate)} Hz "
-                f"({self._latest_mode_label})"
-            )
+            self.ax.set_title(f"Real-Time SPL (RMS dBFS) - {short_name} @ {title_sr} Hz (mono)")
 
         if self.classifier_enabled:
             with self._label_lock:
                 if self.latest_label is not None:
-                    self.text_label.set_text(self.latest_label)
+                    if self.latest_conf is None:
+                        self.text_label.set_text(f"{self.latest_label}")
+                    else:
+                        pct = int(round(self.latest_conf * 100))
+                        self.text_label.set_text(f"{self.latest_label} ({pct}%)")
         else:
             self.text_label.set_text("Classifier: disabled")
 
@@ -951,7 +828,7 @@ class RealTimeSPLVisualizer:
             self.log_csv_path = None
 
     def _append_csv_row(self, timestamp_unix: float, sr_hz: float, label: str, conf: float) -> None:
-        """Append one raw top-1 classification result."""
+        """Append one top-1 classification result."""
         if not self.log_csv_path:
             return
         try:
@@ -969,75 +846,6 @@ class RealTimeSPLVisualizer:
                 )
         except Exception as exc:
             print(f"[CSV] write error: {exc}")
-
-    def _ensure_decision_csv_header(self) -> None:
-        """Create the stabilized decision log once the classifier is enabled."""
-        try:
-            needs_header = (not os.path.exists(DECISION_CSV_PATH)) or os.path.getsize(DECISION_CSV_PATH) == 0
-            if needs_header:
-                with open(DECISION_CSV_PATH, "a", newline="") as handle:
-                    csv.writer(handle).writerow(
-                        [
-                            "iso_time",
-                            "unix_time",
-                            "window_s",
-                            "samplerate_hz",
-                            "label",
-                            "confidence",
-                            "raw_label",
-                            "raw_confidence",
-                            "state",
-                            "hud_action",
-                            "priority",
-                            "entropy_norm",
-                            "margin",
-                            "spl_dbfs",
-                            "noise_floor_dbfs",
-                            "speech_prob",
-                            "direction",
-                            "direction_confidence",
-                            "onset_unix",
-                            "offset_unix",
-                            "is_silence",
-                            "is_ood",
-                        ]
-                    )
-                print(f"[CSV] Logging stabilized decisions to: {DECISION_CSV_PATH}")
-        except Exception as exc:
-            print(f"[CSV] Could not prepare decision log: {exc}")
-
-    def _append_decision_csv_row(self, timestamp_unix: float, sr_hz: float, decision: DecisionSnapshot) -> None:
-        """Append one EMA + hysteresis + OOD gate decision row."""
-        try:
-            with open(DECISION_CSV_PATH, "a", newline="") as handle:
-                csv.writer(handle).writerow(
-                    [
-                        unix_to_local_iso(timestamp_unix),
-                        f"{timestamp_unix:.3f}",
-                        f"{self.classify_window_s:.3f}",
-                        int(sr_hz),
-                        decision.label,
-                        f"{decision.confidence:.6f}",
-                        decision.raw_label,
-                        f"{decision.raw_confidence:.6f}",
-                        decision.state,
-                        decision.hud_action,
-                        decision.priority,
-                        f"{decision.entropy_norm:.6f}",
-                        f"{decision.margin:.6f}",
-                        f"{decision.spl_dbfs:.6f}",
-                        f"{decision.noise_floor_dbfs:.6f}",
-                        f"{decision.speech_prob:.6f}",
-                        decision.direction,
-                        f"{decision.direction_confidence:.6f}",
-                        "" if decision.onset_unix is None else f"{decision.onset_unix:.3f}",
-                        "" if decision.offset_unix is None else f"{decision.offset_unix:.3f}",
-                        int(decision.is_silence),
-                        int(decision.is_ood),
-                    ]
-                )
-        except Exception as exc:
-            print(f"[CSV] decision write error: {exc}")
 
     def _ensure_stt_csv_header(self) -> None:
         """Create the STT CSV file once the transcriber is enabled."""

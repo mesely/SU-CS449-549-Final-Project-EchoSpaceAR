@@ -47,42 +47,25 @@ def push_yamnet_event(
     dominant_label: str,
     dominant_prob: float,
     spl_dbfs: float,
-    *,
-    decision: dict | None = None,
-    spatial: dict | None = None,
-    raw_top5: list[dict] | None = None,
 ) -> None:
-    """
-    Store one classifier window for later polling by Unity.
-
-    Existing Unity DTOs keep working because the classic fields stay in place.
-    New `decision` / `spatial` blocks are additive and safe to ignore.
-    """
-    yamnet_payload = {
-        "window_start_unix": window_start,
-        "window_end_unix": window_end,
-        "top5": top5,
-        "dominant_label": dominant_label,
-        "dominant_prob": dominant_prob,
-        "spl_dbfs": spl_dbfs,
-    }
-    if decision is not None:
-        yamnet_payload["decision"] = decision
-    if spatial is not None:
-        yamnet_payload["spatial"] = spatial
-    if raw_top5 is not None:
-        yamnet_payload["raw_top5"] = raw_top5
-
+    """Store one YAMNet window for later polling by Unity."""
     event = {
         "kind": "yamnet",
         "timestamp_unix": timestamp_unix,
         "session_id": session_id,
-        "yamnet": yamnet_payload,
+        "yamnet": {
+            "window_start_unix": window_start,
+            "window_end_unix": window_end,
+            "top5": top5,
+            "dominant_label": dominant_label,
+            "dominant_prob": dominant_prob,
+            "spl_dbfs": spl_dbfs,
+        },
     }
     _append_event(session_id, event)
     with EVENTS_LOCK:
         total = len(EVENTS[session_id])
-    print(f"[EVENT] yamnet -> session={session_id}, total={total}, dominant={dominant_label}")
+    print(f"[EVENT] yamnet -> session={session_id}, total={total}")
 
 
 def push_stt_event(
@@ -238,53 +221,25 @@ class PipelineHttpHandler(BaseHTTPRequestHandler):
         session_id = data.get("session_id") or ""
         sequence = data.get("seq")
         timestamp_unix = data.get("timestamp_unix")
-        samplerate_hz = int(data.get("samplerate_hz") or 0)
-        channels = max(1, int(data.get("channels") or 1))
-        frame_count = int(data.get("frame_count") or 0)
 
-        print(
-            f"[HTTP] Received audio_chunk seq={sequence} session={session_id} "
-            f"sr={samplerate_hz or 'unknown'} ch={channels} at {timestamp_unix}"
-        )
+        print(f"[HTTP] Received audio_chunk seq={sequence} from session={session_id} at {timestamp_unix}")
 
         try:
             pcm_base64 = data["pcm_base64"]
             raw_bytes = base64.b64decode(pcm_base64)
             samples = np.frombuffer(raw_bytes, dtype=np.float32)
 
-            if channels > 1 and samples.size % channels == 0:
-                payload = samples.reshape(-1, channels)
-            else:
-                payload = samples
-
             if samples.size == 0:
                 print("[HTTP]   samples.size = 0 (empty chunk!)")
             else:
                 max_abs = float(np.max(np.abs(samples)))
-                shape = payload.shape if isinstance(payload, np.ndarray) else samples.shape
-                print(f"[HTTP]   payload.shape={shape}, frame_count={frame_count}, max_abs={max_abs:.4f}")
-
-            chunk_info = {
-                "session_id": session_id,
-                "seq": sequence,
-                "timestamp_unix": timestamp_unix,
-                "samplerate_hz": samplerate_hz,
-                "channels": channels,
-                "sample_format": data.get("sample_format") or "float32",
-                "frame_count": frame_count,
-                "device_unix_time_start": data.get("device_unix_time_start"),
-                "device_unix_time_end": data.get("device_unix_time_end"),
-            }
+                print(f"[HTTP]   samples.shape={samples.shape}, max_abs={max_abs:.4f}")
 
             with UNITY_AUDIO_LOCK:
                 sink = UNITY_AUDIO_SINK
 
             if sink is not None:
-                try:
-                    sink(payload, chunk_info)
-                except TypeError:
-                    # Backward compatibility for older sinks that only expect samples.
-                    sink(payload)
+                sink(samples)
             else:
                 print("[HTTP]   WARNING: UNITY_AUDIO_SINK is None; audio ignored.")
         except Exception as exc:
