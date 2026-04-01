@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EchoSpaceAR Audio Pipeline Architecture</title>
+  <title>EchoSpaceAR Ses Hattı Mimarisi</title>
   <style>
     :root {
       --bg: #f6efe6;
       --bg-deep: #eadac0;
-      --paper: rgba(255, 252, 247, 0.86);
-      --paper-strong: rgba(255, 250, 244, 0.94);
+      --paper: rgba(255, 252, 247, 0.88);
+      --paper-strong: rgba(255, 250, 244, 0.95);
       --line: rgba(57, 40, 25, 0.12);
       --ink: #2a2118;
       --muted: #645646;
@@ -58,13 +58,13 @@
     .shell {
       width: min(1220px, calc(100% - 28px));
       margin: 0 auto;
-      padding: 26px 0 72px;
+      padding: 22px 0 68px;
       position: relative;
       z-index: 1;
     }
 
     section {
-      margin-top: 24px;
+      margin-top: 22px;
     }
 
     .hero,
@@ -84,7 +84,7 @@
     }
 
     .hero {
-      padding: 40px;
+      padding: 30px 32px;
       box-shadow: var(--shadow);
       position: relative;
       background:
@@ -96,12 +96,12 @@
     .hero::after {
       content: "";
       position: absolute;
-      right: -40px;
-      top: -40px;
-      width: 220px;
-      height: 220px;
+      right: -46px;
+      top: -46px;
+      width: 180px;
+      height: 180px;
       border-radius: 50%;
-      background: radial-gradient(circle, rgba(15, 118, 110, 0.18), transparent 68%);
+      background: radial-gradient(circle, rgba(15, 118, 110, 0.16), transparent 68%);
       pointer-events: none;
     }
 
@@ -110,10 +110,10 @@
       display: inline-flex;
       align-items: center;
       flex-wrap: wrap;
-      gap: 10px;
-      padding: 8px 14px;
+      gap: 8px;
+      padding: 7px 13px;
       border-radius: 999px;
-      font-size: 0.82rem;
+      font-size: 0.76rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--teal);
@@ -127,27 +127,27 @@
     h4 {
       font-family: "Iowan Old Style", "Palatino Linotype", serif;
       margin: 0;
-      line-height: 1.05;
+      line-height: 1.08;
       overflow-wrap: anywhere;
     }
 
     h1 {
-      margin-top: 18px;
-      font-size: clamp(2.9rem, 6vw, 5.4rem);
-      max-width: 11ch;
+      margin-top: 14px;
+      font-size: clamp(2.1rem, 4vw, 3.45rem);
+      max-width: 12ch;
     }
 
     h2 {
-      font-size: clamp(2rem, 3vw, 3rem);
+      font-size: clamp(1.7rem, 2.8vw, 2.45rem);
     }
 
     h3 {
-      font-size: 1.35rem;
+      font-size: 1.28rem;
       margin-bottom: 10px;
     }
 
     h4 {
-      font-size: 1.05rem;
+      font-size: 1.02rem;
       margin-bottom: 8px;
     }
 
@@ -155,18 +155,17 @@
     li,
     code,
     .stat,
-    .path,
-    .micro {
+    .path {
       overflow-wrap: anywhere;
       word-break: break-word;
     }
 
     .lead {
-      margin-top: 18px;
+      margin-top: 14px;
       max-width: 760px;
       color: var(--muted);
-      font-size: 1.08rem;
-      line-height: 1.75;
+      font-size: 1rem;
+      line-height: 1.68;
     }
 
     .hero-grid,
@@ -182,8 +181,8 @@
     }
 
     .hero-grid {
-      grid-template-columns: 1.25fr 0.95fr;
-      margin-top: 28px;
+      grid-template-columns: 1.2fr 0.95fr;
+      margin-top: 22px;
       align-items: stretch;
     }
 
@@ -203,12 +202,12 @@
 
     .stat {
       color: var(--muted);
-      line-height: 1.6;
+      line-height: 1.58;
     }
 
     .stat strong {
       display: block;
-      font-size: 2rem;
+      font-size: 1.9rem;
       color: var(--navy);
       margin-bottom: 8px;
       font-family: "Iowan Old Style", "Palatino Linotype", serif;
@@ -219,13 +218,13 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      gap: 18px;
+      gap: 16px;
     }
 
     .hero-note p {
       margin: 0;
       color: var(--muted);
-      line-height: 1.75;
+      line-height: 1.7;
     }
 
     .path {
@@ -237,27 +236,27 @@
       border-radius: 14px;
       background: rgba(29, 77, 108, 0.08);
       color: var(--navy);
-      font-size: 0.95rem;
+      font-size: 0.94rem;
       font-family: "SFMono-Regular", "Menlo", monospace;
     }
 
     .section-head {
       display: flex;
       justify-content: space-between;
-      gap: 18px;
+      gap: 16px;
       align-items: end;
       margin-bottom: 16px;
     }
 
     .section-head p {
-      max-width: 660px;
+      max-width: 650px;
       color: var(--muted);
-      line-height: 1.72;
+      line-height: 1.7;
       margin: 0;
     }
 
     .system-grid {
-      grid-template-columns: 0.92fr 1.25fr 0.92fr;
+      grid-template-columns: 0.92fr 1.28fr 0.92fr;
       align-items: center;
     }
 
@@ -289,7 +288,7 @@
     .legend-card p {
       margin: 0;
       color: var(--muted);
-      line-height: 1.7;
+      line-height: 1.68;
     }
 
     .unity {
@@ -305,7 +304,7 @@
     }
 
     .center-diagram {
-      padding: 8px;
+      padding: 8px 10px;
     }
 
     svg {
@@ -321,7 +320,7 @@
     .flow-card {
       position: relative;
       padding-top: 54px;
-      min-height: 192px;
+      min-height: 186px;
     }
 
     .flow-card .num {
@@ -343,7 +342,7 @@
     }
 
     .lane-card {
-      min-height: 250px;
+      min-height: 242px;
       position: relative;
     }
 
@@ -361,7 +360,7 @@
       margin: 14px 0 0;
       padding-left: 18px;
       color: var(--muted);
-      line-height: 1.7;
+      line-height: 1.68;
     }
 
     .timeline-panel {
@@ -375,7 +374,8 @@
     .timeline-head p {
       margin: 10px 0 0;
       color: var(--muted);
-      line-height: 1.72;
+      line-height: 1.7;
+      max-width: 860px;
     }
 
     .folder-grid {
@@ -383,7 +383,7 @@
     }
 
     .folder-card {
-      min-height: 230px;
+      min-height: 228px;
     }
 
     .folder-top {
@@ -400,7 +400,7 @@
       border-radius: 999px;
       background: rgba(29, 77, 108, 0.08);
       color: var(--navy);
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       white-space: nowrap;
     }
 
@@ -409,7 +409,7 @@
     }
 
     .module-card {
-      min-height: 210px;
+      min-height: 198px;
     }
 
     .legend-grid {
@@ -420,7 +420,7 @@
       margin-top: 22px;
       text-align: center;
       color: var(--muted);
-      font-size: 0.95rem;
+      font-size: 0.94rem;
     }
 
     @media (max-width: 1120px) {
@@ -437,7 +437,7 @@
 
     @media (max-width: 920px) {
       .hero {
-        padding: 28px;
+        padding: 24px;
       }
 
       .hero-grid,
@@ -485,36 +485,36 @@
 <body>
   <main class="shell">
     <section class="hero">
-      <div class="eyebrow">EchoSpaceAR • Unity + Python • Audio Architecture</div>
-      <h1>From raw sound to live environmental guidance.</h1>
+      <div class="eyebrow">EchoSpaceAR • Unity + Python • Ses Mimarisi</div>
+      <h1>Ham sesten anlık çevresel rehberliğe.</h1>
       <p class="lead">
-        EchoSpaceAR is a two-sided audio system. Unity captures sound and presents the user experience,
-        while the Python server performs live signal analysis, sound classification, speech transcription,
-        and event packaging. This page maps the full route clearly, from microphone frames to user-facing cues.
+        EchoSpaceAR iki parçalı bir ses sistemi olarak çalışır. Unity tarafı sesi toplar ve deneyimi sunar;
+        Python tarafı ise aynı akışı eş zamanlı olarak analiz eder, sınıflandırır, konuşmayı çözer ve
+        yeniden Unity'nin kullanabileceği olaylara dönüştürür.
       </p>
 
       <div class="hero-grid">
         <div class="stats-grid">
           <article class="mini-panel stat">
             <strong>3</strong>
-            Core HTTP endpoints connect Unity clients with the analysis backend.
+            Unity ile analiz sunucusu arasında çalışan temel HTTP uç noktası vardır.
           </article>
           <article class="mini-panel stat">
             <strong>4</strong>
-            Main analysis lanes run in parallel: SPL, YAMNet, Whisper, and Gemini.
+            Aynı ses akışı üstünde paralel çalışan ana hat vardır: SPL, YAMNet, Whisper ve Gemini.
           </article>
           <article class="mini-panel stat">
             <strong>2</strong>
-            Unity fronts are represented here: Android and Quest 2/3 experiences.
+            Bu mimari iki Unity istemcisine hizmet eder: Android ve Quest 2/3.
           </article>
         </div>
 
         <aside class="mini-panel hero-note">
           <div>
-            <h3>Primary runtime path</h3>
+            <h3>Ana çalışma yolu</h3>
             <p>
-              Unity sends float32 PCM chunks to the Python bridge. The server fans the same stream into
-              multiple workers, then returns structured events that Unity can poll and render as accessible cues.
+              Unity float32 PCM parçalarını Python köprüsüne yollar. Sunucu bu akışı kuyruklara ayırır,
+              olayları üretir ve Unity bunları tekrar çekerek kullanıcıya erişilebilir geri bildirim verir.
             </p>
           </div>
           <div class="path">Python_Pipeline/server</div>
@@ -525,12 +525,12 @@
     <section>
       <div class="section-head">
         <div>
-          <div class="chip">System Map</div>
-          <h2>Unity and Python as one pipeline</h2>
+          <div class="chip">Sistem Haritası</div>
+          <h2>Unity ve Python tek bir ses hattı gibi çalışır</h2>
         </div>
         <p>
-          The project is easiest to understand as a round-trip loop: Unity records and displays, Python analyzes
-          and summarizes, then Unity pulls the resulting events back into the interface layer.
+          Sistemi anlamanın en kolay yolu onu kapalı bir döngü olarak görmektir: Unity kaydeder ve gösterir,
+          Python çözümler ve paketler, sonra Unity oluşan olayları çekerek arayüzde anlamlı ipuçlarına dönüştürür.
         </p>
       </div>
 
@@ -539,20 +539,20 @@
           <div class="stack">
             <article class="stack-node unity">
               <strong>Android</strong>
-              <p>Unity mobile experience. Captures audio, packages frames, and renders user-facing feedback on handheld devices.</p>
+              <p>Mobil Unity deneyimi. Sesi toplar, ağ üzerinden yollar ve elde edilen olayları telefon arayüzünde gösterir.</p>
             </article>
             <article class="stack-node unity">
               <strong>Quest2_3</strong>
-              <p>Unity immersive experience. Uses the same event model for VR/AR presentation and interaction.</p>
+              <p>XR tarafı. Aynı olay akışını kullanarak ipuçlarını uzamsal sahne ve etkileşim katmanına taşır.</p>
             </article>
             <article class="stack-node unity">
-              <strong>Unity Networking Layer</strong>
-              <p>Calls <code>/client_hello</code>, pushes <code>/audio_chunk</code>, and polls <code>/events</code>.</p>
+              <strong>Unity Ağ Katmanı</strong>
+              <p><code>/client_hello</code> çağırır, <code>/audio_chunk</code> yollar ve <code>/events</code> ile olayları çeker.</p>
             </article>
           </div>
 
           <div class="center-diagram">
-            <svg viewBox="0 0 640 360" aria-label="EchoSpaceAR architecture diagram" role="img">
+            <svg viewBox="0 0 780 430" aria-label="EchoSpaceAR mimari diyagramı" role="img">
               <defs>
                 <linearGradient id="boxA" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" stop-color="#edf8f6" />
@@ -567,62 +567,68 @@
                 </marker>
               </defs>
 
-              <rect x="24" y="42" width="156" height="78" rx="24" fill="url(#boxB)" stroke="rgba(57,40,25,0.14)"></rect>
-              <text x="102" y="76" text-anchor="middle" font-size="20" fill="#2a2118" font-family="Avenir Next">Unity Input</text>
-              <text x="102" y="100" text-anchor="middle" font-size="13" fill="#645646" font-family="Avenir Next">Mic capture • PCM chunks • session id</text>
+              <rect x="30" y="34" width="184" height="96" rx="28" fill="url(#boxB)" stroke="rgba(57,40,25,0.14)"></rect>
+              <text x="122" y="72" text-anchor="middle" font-size="18" fill="#2a2118" font-family="Avenir Next">Unity Girdi</text>
+              <text x="122" y="95" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">mikrofon • PCM parçaları</text>
+              <text x="122" y="112" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">oturum kimliği</text>
 
-              <rect x="242" y="42" width="156" height="78" rx="24" fill="url(#boxA)" stroke="rgba(57,40,25,0.14)"></rect>
-              <text x="320" y="76" text-anchor="middle" font-size="20" fill="#2a2118" font-family="Avenir Next">HTTP Bridge</text>
-              <text x="320" y="100" text-anchor="middle" font-size="13" fill="#645646" font-family="Avenir Next">/client_hello • /audio_chunk</text>
+              <rect x="298" y="34" width="184" height="96" rx="28" fill="url(#boxA)" stroke="rgba(57,40,25,0.14)"></rect>
+              <text x="390" y="72" text-anchor="middle" font-size="18" fill="#2a2118" font-family="Avenir Next">HTTP Köprüsü</text>
+              <text x="390" y="95" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">/client_hello</text>
+              <text x="390" y="112" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">/audio_chunk</text>
 
-              <rect x="460" y="42" width="156" height="78" rx="24" fill="url(#boxA)" stroke="rgba(57,40,25,0.14)"></rect>
-              <text x="538" y="76" text-anchor="middle" font-size="20" fill="#2a2118" font-family="Avenir Next">Visualizer Core</text>
-              <text x="538" y="100" text-anchor="middle" font-size="13" fill="#645646" font-family="Avenir Next">Queues • plot • worker dispatch</text>
+              <rect x="566" y="34" width="184" height="96" rx="28" fill="url(#boxA)" stroke="rgba(57,40,25,0.14)"></rect>
+              <text x="658" y="72" text-anchor="middle" font-size="18" fill="#2a2118" font-family="Avenir Next">Görselleştirici</text>
+              <text x="658" y="95" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">kuyruklar • grafik</text>
+              <text x="658" y="112" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">işçi dağıtımı</text>
 
-              <rect x="56" y="206" width="122" height="88" rx="24" fill="#ffffff" stroke="rgba(57,40,25,0.14)"></rect>
-              <text x="117" y="238" text-anchor="middle" font-size="18" fill="#1d4d6c" font-family="Avenir Next">SPL Lane</text>
-              <text x="117" y="262" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">RMS dBFS</text>
-              <text x="117" y="279" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">live chart</text>
+              <path d="M214 82 H286" stroke="#4b5b58" stroke-width="3" fill="none" marker-end="url(#arrow)"></path>
+              <path d="M482 82 H554" stroke="#4b5b58" stroke-width="3" fill="none" marker-end="url(#arrow)"></path>
+              <path d="M658 130 V184" stroke="#4b5b58" stroke-width="3" fill="none" marker-end="url(#arrow)"></path>
+              <path d="M108 190 H698" stroke="#4b5b58" stroke-width="3" fill="none"></path>
 
-              <rect x="198" y="206" width="122" height="88" rx="24" fill="#ffffff" stroke="rgba(57,40,25,0.14)"></rect>
-              <text x="259" y="238" text-anchor="middle" font-size="18" fill="#0f766e" font-family="Avenir Next">YAMNet</text>
-              <text x="259" y="262" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">top labels</text>
-              <text x="259" y="279" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">event confidence</text>
+              <path d="M118 190 V224" stroke="#4b5b58" stroke-width="2.5" fill="none" marker-end="url(#arrow)"></path>
+              <path d="M302 190 V224" stroke="#4b5b58" stroke-width="2.5" fill="none" marker-end="url(#arrow)"></path>
+              <path d="M486 190 V224" stroke="#4b5b58" stroke-width="2.5" fill="none" marker-end="url(#arrow)"></path>
+              <path d="M670 190 V224" stroke="#4b5b58" stroke-width="2.5" fill="none" marker-end="url(#arrow)"></path>
 
-              <rect x="340" y="206" width="122" height="88" rx="24" fill="#ffffff" stroke="rgba(57,40,25,0.14)"></rect>
-              <text x="401" y="238" text-anchor="middle" font-size="18" fill="#d97706" font-family="Avenir Next">Whisper</text>
-              <text x="401" y="262" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">speech gate</text>
-              <text x="401" y="279" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">rolling transcript</text>
+              <rect x="50" y="232" width="136" height="106" rx="26" fill="#ffffff" stroke="rgba(57,40,25,0.14)"></rect>
+              <text x="118" y="270" text-anchor="middle" font-size="17" fill="#1d4d6c" font-family="Avenir Next">SPL Hattı</text>
+              <text x="118" y="292" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">RMS dBFS</text>
+              <text x="118" y="309" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">canlı seviye grafiği</text>
 
-              <rect x="482" y="206" width="122" height="88" rx="24" fill="#ffffff" stroke="rgba(57,40,25,0.14)"></rect>
-              <text x="543" y="238" text-anchor="middle" font-size="18" fill="#d9485f" font-family="Avenir Next">Gemini</text>
-              <text x="543" y="262" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">window summary</text>
-              <text x="543" y="279" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">user message</text>
+              <rect x="234" y="232" width="136" height="106" rx="26" fill="#ffffff" stroke="rgba(57,40,25,0.14)"></rect>
+              <text x="302" y="270" text-anchor="middle" font-size="17" fill="#0f766e" font-family="Avenir Next">YAMNet</text>
+              <text x="302" y="292" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">üst etiketler</text>
+              <text x="302" y="309" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">olasılık ve olay üretimi</text>
 
-              <path d="M180 81 H232" stroke="#4b5b58" stroke-width="3" fill="none" marker-end="url(#arrow)"></path>
-              <path d="M398 81 H450" stroke="#4b5b58" stroke-width="3" fill="none" marker-end="url(#arrow)"></path>
-              <path d="M538 120 V188" stroke="#4b5b58" stroke-width="3" fill="none" marker-end="url(#arrow)"></path>
-              <path d="M538 188 H117" stroke="#4b5b58" stroke-width="2.5" fill="none" marker-end="url(#arrow)"></path>
-              <path d="M538 188 H259" stroke="#4b5b58" stroke-width="2.5" fill="none" marker-end="url(#arrow)"></path>
-              <path d="M538 188 H401" stroke="#4b5b58" stroke-width="2.5" fill="none" marker-end="url(#arrow)"></path>
-              <path d="M538 188 V196" stroke="#4b5b58" stroke-width="2.5" fill="none" marker-end="url(#arrow)"></path>
-              <path d="M117 314 H590 Q616 314 616 288 V154" stroke="#c26c07" stroke-width="3" fill="none" stroke-dasharray="8 8" marker-end="url(#arrow)"></path>
-              <text x="562" y="172" text-anchor="end" font-size="12" fill="#c26c07" font-family="Avenir Next">structured events back to Unity</text>
+              <rect x="418" y="232" width="136" height="106" rx="26" fill="#ffffff" stroke="rgba(57,40,25,0.14)"></rect>
+              <text x="486" y="270" text-anchor="middle" font-size="17" fill="#d97706" font-family="Avenir Next">Whisper</text>
+              <text x="486" y="292" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">konuşma eşiği</text>
+              <text x="486" y="309" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">akan metin çözümü</text>
+
+              <rect x="602" y="232" width="136" height="106" rx="26" fill="#ffffff" stroke="rgba(57,40,25,0.14)"></rect>
+              <text x="670" y="270" text-anchor="middle" font-size="17" fill="#d9485f" font-family="Avenir Next">Gemini</text>
+              <text x="670" y="292" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">özet pencere</text>
+              <text x="670" y="309" text-anchor="middle" font-size="12" fill="#645646" font-family="Avenir Next">kullanıcı mesajı</text>
+
+              <rect x="470" y="356" width="248" height="36" rx="18" fill="rgba(217,119,6,0.10)" stroke="#c26c07" stroke-dasharray="8 8"></rect>
+              <text x="594" y="379" text-anchor="middle" font-size="12" fill="#c26c07" font-family="Avenir Next">oluşan olaylar Unity tarafından /events ile çekilir</text>
             </svg>
           </div>
 
           <div class="stack">
             <article class="stack-node python">
-              <strong>Python HTTP Bridge</strong>
-              <p>Decodes base64 float32 PCM, associates session ids, and forwards audio into the runtime.</p>
+              <strong>Python HTTP Köprüsü</strong>
+              <p>Base64 float32 PCM verisini çözer, oturumları takip eder ve sesi doğrudan analiz akışına yollar.</p>
             </article>
             <article class="stack-node python">
-              <strong>Python Analysis Runtime</strong>
-              <p>Runs queues, plotting, STT gating, classification windows, logging, and optional LLM windows.</p>
+              <strong>Python Analiz Çalışma Zamanı</strong>
+              <p>Kuyrukları, görselleştirmeyi, STT eşiğini, sınıflandırma pencerelerini ve günlükleri birlikte yönetir.</p>
             </article>
             <article class="stack-node return">
-              <strong>Unity Event Rendering</strong>
-              <p>Consumes YAMNet, STT, and LLM outputs to drive accessible UI messages and scene reactions.</p>
+              <strong>Unity Olay Sunumu</strong>
+              <p>YAMNet, STT ve özet olaylarını kullanıcıya anlaşılır ipuçları olarak gösterir ve sahne tepkilerini besler.</p>
             </article>
           </div>
         </div>
@@ -632,45 +638,45 @@
     <section>
       <div class="section-head">
         <div>
-          <div class="chip">Operational Flow</div>
-          <h2>Step-by-step runtime sequence</h2>
+          <div class="chip">İşletim Akışı</div>
+          <h2>Çalışma sırası adım adım</h2>
         </div>
         <p>
-          Each lane consumes the same incoming audio, but they operate with different window sizes and goals.
-          That separation is what makes the system responsive while still producing richer context.
+          Bütün alt sistemler aynı ses akışını tüketir; ancak bunu farklı pencere boyları ve farklı amaçlarla yaparlar.
+          Bu ayrım hem hızlı tepkiyi hem de daha anlamlı bağlam üretimini mümkün kılar.
         </p>
       </div>
 
       <div class="flow-grid">
         <article class="flow-card">
           <div class="num">1</div>
-          <h3>Client hello</h3>
-          <p>Unity opens a session and identifies itself so audio can start flowing into the backend.</p>
+          <h3>Oturum açılışı</h3>
+          <p>Unity önce kendini tanıtır ve bir oturum başlatır. Böylece gelen parçalar doğru istemciyle eşleşir.</p>
         </article>
         <article class="flow-card">
           <div class="num">2</div>
-          <h3>Chunk upload</h3>
-          <p>Audio arrives as base64-encoded float32 PCM and is decoded back into a mono numpy stream.</p>
+          <h3>Ses parçası gönderimi</h3>
+          <p>Ses base64 ile paketlenmiş float32 PCM olarak gelir ve sunucu tarafında tekrar mono numpy dizisine çevrilir.</p>
         </article>
         <article class="flow-card">
           <div class="num">3</div>
-          <h3>Queue fan-out</h3>
-          <p>The visualizer distributes the same chunk to SPL plotting, YAMNet inference, and STT buffering.</p>
+          <h3>Kuyruklara ayrılma</h3>
+          <p>Aynı parça grafik, YAMNet, STT ve özetleme tarafına uygun kuyruklara paylaştırılır.</p>
         </article>
         <article class="flow-card">
           <div class="num">4</div>
-          <h3>Sound detection</h3>
-          <p>YAMNet builds rolling windows and emits top labels such as speech, siren, horn, music, or glass break.</p>
+          <h3>Ses olaylarının bulunması</h3>
+          <p>YAMNet kayan pencerelerle çalışır ve konuşma, siren, korna, müzik ya da cam kırılması gibi ipuçlarını üretir.</p>
         </article>
         <article class="flow-card">
           <div class="num">5</div>
-          <h3>Speech decoding</h3>
-          <p>Whisper uses a speech gate and pre-roll so transcripts are generated only when spoken content is likely present.</p>
+          <h3>Konuşmanın çözümlenmesi</h3>
+          <p>Whisper yalnızca konuşma olasılığı yeterince yükseldiğinde devreye girer; ön kayıt tamponu da cümlenin başını korur.</p>
         </article>
         <article class="flow-card">
           <div class="num">6</div>
-          <h3>Context delivery</h3>
-          <p>Gemini can summarize recent sound and speech windows, and Unity polls those events to inform the user.</p>
+          <h3>Bağlamın geri verilmesi</h3>
+          <p>Gemini son ses ve metin pencerelerini özetler; Unity de bu olayları çekip kullanıcıya uygun geri bildirim üretir.</p>
         </article>
       </div>
     </section>
@@ -678,57 +684,57 @@
     <section>
       <div class="section-head">
         <div>
-          <div class="chip">Python Runtime</div>
-          <h2>Detailed view of the Python pipeline</h2>
+          <div class="chip">Python Çekirdeği</div>
+          <h2>Python hattının ayrıntılı görünümü</h2>
         </div>
         <p>
-          The Python side is intentionally split into dedicated lanes. Each lane owns one kind of processing,
-          but they all coordinate through the visualizer and the HTTP event bridge.
+          Python tarafı tek parça bir script gibi değil, görev ayrımı olan hatlar gibi düşünüldüğünde çok daha rahat anlaşılır.
+          Her hat bir işi iyi yapar; görselleştirici ise bunları birlikte koordine eder.
         </p>
       </div>
 
       <div class="lane-grid">
         <article class="lane-card">
           <div class="lane-accent"></div>
-          <h3>Ingestion Lane</h3>
-          <p>The bridge receives Unity chunks, decodes them, normalizes them into mono float32 arrays, and forwards them to the registered sink.</p>
+          <h3>Giriş Hattı</h3>
+          <p>Köprü Unity'den gelen parçaları alır, çözer, mono float32 biçimine getirir ve kayıtlı ses alıcısına iletir.</p>
           <ul>
-            <li>Session-aware event storage</li>
-            <li>Audio sink registration for Unity mode</li>
-            <li>Shared entry point into the runtime queues</li>
+            <li>oturum bazlı olay depolama</li>
+            <li>Unity modu için ses alıcısı kaydı</li>
+            <li>analiz kuyruğuna ortak giriş</li>
           </ul>
         </article>
 
         <article class="lane-card">
           <div class="lane-accent"></div>
-          <h3>Signal Lane</h3>
-          <p>The visualizer computes RMS dBFS continuously for the live matplotlib view and keeps short rolling histories for the UI.</p>
+          <h3>Sinyal Hattı</h3>
+          <p>Görselleştirici RMS dBFS hesabını sürekli yapar ve kullanıcıya anlık ses seviyesini canlı grafik üstünde taşır.</p>
           <ul>
-            <li>Low-latency level updates</li>
-            <li>Device selection and sample-rate handling</li>
-            <li>Window assembly for downstream workers</li>
+            <li>düşük gecikmeli seviye güncellemesi</li>
+            <li>örnekleme hızı ve aygıt yönetimi</li>
+            <li>aşağı akış için pencere birleştirme</li>
           </ul>
         </article>
 
         <article class="lane-card">
           <div class="lane-accent"></div>
-          <h3>Recognition Lane</h3>
-          <p>YAMNet classifies acoustic context, while Whisper activates only when speech probability is strong enough to justify transcription.</p>
+          <h3>Tanıma Hattı</h3>
+          <p>YAMNet akustik bağlamı sınıflandırır; Whisper ise yalnızca konuşma yeterince olasıysa yazıya dökme sürecini açar.</p>
           <ul>
-            <li>Reduced-label or full YAMNet support</li>
-            <li>Speech gating with hysteresis</li>
-            <li>Pre-roll buffering to preserve utterance starts</li>
+            <li>azaltılmış ya da tam YAMNet desteği</li>
+            <li>histerezisli konuşma eşiği</li>
+            <li>cümlenin başını koruyan ön kayıt tamponu</li>
           </ul>
         </article>
 
         <article class="lane-card">
           <div class="lane-accent"></div>
-          <h3>Interpretation Lane</h3>
-          <p>Gemini receives compact windows of recent STT text and classifier events, then produces short environment summaries and alerts.</p>
+          <h3>Yorumlama Hattı</h3>
+          <p>Gemini son STT metnini ve sınıflandırma olaylarını küçük bir bağlam penceresinde yorumlayarak kısa özet üretir.</p>
           <ul>
-            <li>Window-based prompt building</li>
-            <li>JSON-only output parsing</li>
-            <li>Summary and important-event packaging</li>
+            <li>pencere bazlı istem kurma</li>
+            <li>yalnızca JSON çıktı çözme</li>
+            <li>özet ve önemli olay paketleme</li>
           </ul>
         </article>
       </div>
@@ -737,85 +743,91 @@
     <section>
       <div class="panel timeline-panel">
         <div class="timeline-head">
-          <div class="chip">Timeline View</div>
-          <h2>How the windows overlap in time</h2>
+          <div class="chip">Zaman Çizgisi</div>
+          <h2>Pencereler zaman içinde nasıl üst üste biniyor</h2>
           <p>
-            Not every subsystem reacts on the same cadence. This staggered structure allows fast sound feedback,
-            slightly slower speech decoding, and broader context summaries without blocking the stream.
+            Her alt sistem aynı hızda tepki vermez. Bu kademeli yapı sayesinde ses seviyesi çok hızlı akar,
+            konuşma çözümü biraz daha geniş pencereyle çalışır ve bağlam özeti daha büyük bir zaman dilimini toplar.
           </p>
         </div>
 
-        <svg viewBox="0 0 1120 360" aria-label="Pipeline timeline view" role="img">
+        <svg viewBox="0 0 1160 390" aria-label="Ses hattı zaman çizgisi" role="img">
           <defs>
             <linearGradient id="timelineBg" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stop-color="#fffaf4"></stop>
               <stop offset="100%" stop-color="#f6f9f8"></stop>
             </linearGradient>
           </defs>
-          <rect x="18" y="18" width="1084" height="324" rx="28" fill="url(#timelineBg)" stroke="rgba(57,40,25,0.12)"></rect>
+          <rect x="18" y="18" width="1124" height="352" rx="28" fill="url(#timelineBg)" stroke="rgba(57,40,25,0.12)"></rect>
 
           <g font-family="Avenir Next" fill="#645646" font-size="14">
-            <text x="82" y="86">Unity chunks</text>
-            <text x="82" y="146">SPL stream</text>
-            <text x="82" y="206">YAMNet windows</text>
-            <text x="82" y="266">Whisper session</text>
-            <text x="82" y="326">Gemini summary</text>
+            <text x="84" y="96">Unity parçaları</text>
+            <text x="84" y="156">SPL akışı</text>
+            <text x="84" y="216">YAMNet pencereleri</text>
+            <text x="84" y="276">Whisper oturumu</text>
+            <text x="84" y="336">Gemini özeti</text>
           </g>
 
           <g stroke="rgba(57,40,25,0.15)" stroke-width="1">
-            <line x1="210" y1="60" x2="1040" y2="60"></line>
-            <line x1="210" y1="120" x2="1040" y2="120"></line>
-            <line x1="210" y1="180" x2="1040" y2="180"></line>
-            <line x1="210" y1="240" x2="1040" y2="240"></line>
-            <line x1="210" y1="300" x2="1040" y2="300"></line>
+            <line x1="232" y1="70" x2="1062" y2="70"></line>
+            <line x1="232" y1="130" x2="1062" y2="130"></line>
+            <line x1="232" y1="190" x2="1062" y2="190"></line>
+            <line x1="232" y1="250" x2="1062" y2="250"></line>
+            <line x1="232" y1="310" x2="1062" y2="310"></line>
           </g>
 
           <g font-family="Avenir Next" fill="#645646" font-size="12">
-            <text x="230" y="42">t-5s</text>
-            <text x="390" y="42">t-4s</text>
-            <text x="550" y="42">t-3s</text>
-            <text x="710" y="42">t-2s</text>
-            <text x="870" y="42">t-1s</text>
-            <text x="1018" y="42">now</text>
+            <text x="252" y="48">t-5 sn</text>
+            <text x="412" y="48">t-4 sn</text>
+            <text x="572" y="48">t-3 sn</text>
+            <text x="732" y="48">t-2 sn</text>
+            <text x="892" y="48">t-1 sn</text>
+            <text x="1032" y="48">şimdi</text>
           </g>
 
           <g fill="#d97706">
-            <rect x="230" y="70" width="54" height="18" rx="9"></rect>
-            <rect x="292" y="70" width="54" height="18" rx="9"></rect>
-            <rect x="354" y="70" width="54" height="18" rx="9"></rect>
-            <rect x="416" y="70" width="54" height="18" rx="9"></rect>
-            <rect x="478" y="70" width="54" height="18" rx="9"></rect>
-            <rect x="540" y="70" width="54" height="18" rx="9"></rect>
-            <rect x="602" y="70" width="54" height="18" rx="9"></rect>
-            <rect x="664" y="70" width="54" height="18" rx="9"></rect>
-            <rect x="726" y="70" width="54" height="18" rx="9"></rect>
-            <rect x="788" y="70" width="54" height="18" rx="9"></rect>
-            <rect x="850" y="70" width="54" height="18" rx="9"></rect>
-            <rect x="912" y="70" width="54" height="18" rx="9"></rect>
-            <rect x="974" y="70" width="54" height="18" rx="9"></rect>
+            <rect x="256" y="82" width="56" height="18" rx="9"></rect>
+            <rect x="320" y="82" width="56" height="18" rx="9"></rect>
+            <rect x="384" y="82" width="56" height="18" rx="9"></rect>
+            <rect x="448" y="82" width="56" height="18" rx="9"></rect>
+            <rect x="512" y="82" width="56" height="18" rx="9"></rect>
+            <rect x="576" y="82" width="56" height="18" rx="9"></rect>
+            <rect x="640" y="82" width="56" height="18" rx="9"></rect>
+            <rect x="704" y="82" width="56" height="18" rx="9"></rect>
+            <rect x="768" y="82" width="56" height="18" rx="9"></rect>
+            <rect x="832" y="82" width="56" height="18" rx="9"></rect>
+            <rect x="896" y="82" width="56" height="18" rx="9"></rect>
+            <rect x="960" y="82" width="56" height="18" rx="9"></rect>
+            <rect x="1024" y="82" width="56" height="18" rx="9"></rect>
           </g>
 
-          <path d="M230 130 C310 92, 392 160, 470 122 S628 104, 710 132 S862 170, 1040 116" fill="none" stroke="#1d4d6c" stroke-width="4"></path>
+          <path d="M256 142 C336 102, 420 170, 500 134 S660 114, 744 144 S900 182, 1060 126" fill="none" stroke="#1d4d6c" stroke-width="4"></path>
 
           <g fill="#0f766e">
-            <rect x="350" y="188" width="165" height="28" rx="14"></rect>
-            <rect x="530" y="188" width="165" height="28" rx="14"></rect>
-            <rect x="710" y="188" width="165" height="28" rx="14"></rect>
-            <rect x="890" y="188" width="150" height="28" rx="14"></rect>
+            <rect x="402" y="202" width="172" height="30" rx="15"></rect>
+            <rect x="586" y="202" width="172" height="30" rx="15"></rect>
+            <rect x="770" y="202" width="172" height="30" rx="15"></rect>
+            <rect x="954" y="202" width="126" height="30" rx="15"></rect>
           </g>
 
           <g fill="#d9485f">
-            <rect x="420" y="248" width="390" height="34" rx="17"></rect>
+            <rect x="486" y="260" width="454" height="40" rx="20"></rect>
           </g>
-          <g fill="#ffffff" font-family="Avenir Next" font-size="13">
-            <text x="615" y="270" text-anchor="middle">speech gate open + pre-roll + rolling decode</text>
+          <g fill="#ffffff" font-family="Avenir Next" font-size="12.5">
+            <text x="713" y="281" text-anchor="middle">
+              <tspan x="713" dy="0">konuşma eşiği açık</tspan>
+              <tspan x="713" dy="15">ön kayıt + akan çözüm</tspan>
+            </text>
           </g>
 
           <g fill="#1d4d6c">
-            <rect x="718" y="308" width="210" height="28" rx="14"></rect>
+            <rect x="762" y="320" width="270" height="34" rx="17"></rect>
           </g>
-          <g fill="#ffffff" font-family="Avenir Next" font-size="13">
-            <text x="823" y="327" text-anchor="middle">recent sound + transcript summary window</text>
+          <g fill="#ffffff" font-family="Avenir Next" font-size="12.5">
+            <text x="897" y="341" text-anchor="middle">
+              <tspan x="897" dy="0">yakın ses + metin</tspan>
+              <tspan x="897" dy="15">özet penceresi</tspan>
+            </text>
           </g>
         </svg>
       </div>
@@ -824,12 +836,12 @@
     <section>
       <div class="section-head">
         <div>
-          <div class="chip">Folder Guide</div>
-          <h2>What the major folders are responsible for</h2>
+          <div class="chip">Klasör Rehberi</div>
+          <h2>Ana klasörler ne işe yarıyor</h2>
         </div>
         <p>
-          These folders represent the system in layers: Unity experiences at the edge, shared audio analysis in Python,
-          and runtime assets plus generated outputs around that core.
+          Yapı katmanlı düşünülünce çok netleşir: Unity klasörleri istemci deneyimini taşır,
+          Python klasörü ortak analiz omurgasını taşır ve destek klasörleri de model, belge ve günlük görevini görür.
         </p>
       </div>
 
@@ -837,78 +849,78 @@
         <article class="folder-card">
           <div class="folder-top">
             <h3>Android</h3>
-            <span class="tag">Unity client</span>
+            <span class="tag">Unity istemcisi</span>
           </div>
-          <p>The Android Unity project packages the mobile-facing experience. It is responsible for capture, transport, and how detected events are presented on a phone or tablet.</p>
+          <p>Mobil Unity projesidir. Ses toplama, paketleme ve çıkan olayları telefon ekranındaki deneyime dönüştürme işini üstlenir.</p>
           <ul>
-            <li>Gameplay and UI scene logic</li>
-            <li>Microphone input on Android hardware</li>
-            <li>Networking calls to the Python backend</li>
+            <li>oyun ve arayüz sahneleri</li>
+            <li>Android mikrofon girişi</li>
+            <li>Python tarafına ağ istekleri</li>
           </ul>
         </article>
 
         <article class="folder-card">
           <div class="folder-top">
             <h3>Quest2_3</h3>
-            <span class="tag">Unity XR client</span>
+            <span class="tag">Unity XR istemcisi</span>
           </div>
-          <p>The Meta Quest project contains the immersive side of the product. It can consume the same backend event stream while placing cues inside a spatial interface.</p>
+          <p>Meta Quest tarafını taşır. Aynı olay akışını kullanır; ancak bunu uzamsal sahne ve XR etkileşimleriyle birleştirir.</p>
           <ul>
-            <li>XR scenes and interaction flow</li>
-            <li>Quest-specific deployment assets</li>
-            <li>Accessibility feedback inside VR/AR</li>
+            <li>XR sahne akışı</li>
+            <li>Quest dağıtım varlıkları</li>
+            <li>mekânsal geri bildirim üretimi</li>
           </ul>
         </article>
 
         <article class="folder-card">
           <div class="folder-top">
             <h3>Python_Pipeline/server</h3>
-            <span class="tag">Analysis backend</span>
+            <span class="tag">analiz sunucusu</span>
           </div>
-          <p>This is the runtime center of the project. It receives audio from Unity, coordinates analysis workers, stores logs, and exposes event endpoints.</p>
+          <p>Sistemin merkezidir. Unity'den sesi alır, işçi akışlarını yönetir, olayları saklar ve uç noktaları açar.</p>
           <ul>
-            <li>HTTP bridge and event store</li>
-            <li>Live audio analysis runtime</li>
-            <li>Models, logs, and developer docs</li>
+            <li>HTTP köprüsü ve olay deposu</li>
+            <li>canlı analiz çalışma zamanı</li>
+            <li>modeller, günlükler ve belgeler</li>
           </ul>
         </article>
 
         <article class="folder-card">
           <div class="folder-top">
             <h3>pipeline_runtime</h3>
-            <span class="tag">Core package</span>
+            <span class="tag">çekirdek paket</span>
           </div>
-          <p>The internal Python package separates configuration, device utilities, model integrations, helper functions, and the visualizer orchestration layer.</p>
+          <p>Python içindeki asıl görev paylaşımı buradadır. Ayarlar, aygıt yardımcıları, model katmanları ve görselleştirici ayrılmıştır.</p>
           <ul>
-            <li>Cleaner ownership per module</li>
-            <li>Shorter files for faster navigation</li>
-            <li>Shared helpers used across runtime lanes</li>
+            <li>dosya bazlı net sorumluluk</li>
+            <li>daha kısa ve okunur modüller</li>
+            <li>paylaşılan yardımcı işlevler</li>
           </ul>
         </article>
 
         <article class="folder-card">
           <div class="folder-top">
             <h3>models + reduced_yamnet_savedmodel</h3>
-            <span class="tag">Model assets</span>
+            <span class="tag">model varlıkları</span>
           </div>
-          <p>This area holds the reduced YAMNet label metadata and the exported SavedModel/TFLite artifacts used by the classifier lane.</p>
+          <p>Azaltılmış etiket seti, SavedModel çıktısı ve sınıflandırma hattının kullandığı yardımcı model dosyaları burada tutulur.</p>
           <ul>
-            <li>Reduced label mapping</li>
-            <li>SavedModel export output</li>
-            <li>Lightweight deployment-friendly assets</li>
+            <li>etiket eşleme verisi</li>
+            <li>SavedModel ve TFLite çıktıları</li>
+            <li>dağıtıma uygun model dosyaları</li>
           </ul>
         </article>
 
         <article class="folder-card">
           <div class="folder-top">
             <h3>docs + logs</h3>
-            <span class="tag">Support material</span>
+            <span class="tag">destek alanı</span>
           </div>
-          <p>The docs folder explains the architecture for humans, while the logs folder captures classifications, transcripts, and LLM summaries for debugging and evaluation.</p>
+          <p>Doküman klasörü mimariyi insanlara anlatır; günlük klasörü ise denemelerde oluşan sınıflandırma, metin ve özet kayıtlarını saklar.</p>
           <ul>
-            <li>Architecture reference page</li>
-            <li>CSV and JSONL outputs</li>
-            <li>Observation trail for testing runs</li>
+            <li>mimari anlatım sayfası</li>
+            <li>CSV ve JSONL çıktıları</li>
+            <li>test ve gözlem izi</li>
           </ul>
         </article>
       </div>
@@ -917,44 +929,44 @@
     <section>
       <div class="section-head">
         <div>
-          <div class="chip">Key Files</div>
-          <h2>Important files inside the Python server</h2>
+          <div class="chip">Önemli Dosyalar</div>
+          <h2>Python sunucusundaki temel dosyalar</h2>
         </div>
         <p>
-          These files form the practical backbone of the runtime. Together they make the server easier to read,
-          easier to maintain, and easier to explain to someone new joining the project.
+          Bu dosyalar çalışma zamanının omurgasını kurar. Birlikte ele alındıklarında hem geliştirmeyi kolaylaştırır
+          hem de yeni gelen birine sistemi kısa sürede anlatılabilir hale getirir.
         </p>
       </div>
 
       <div class="module-grid">
         <article class="module-card">
           <h3>Pipeline.py</h3>
-          <p>The stable entry script. It delegates startup into the runtime package so existing launch commands remain simple.</p>
+          <p>Kararlı giriş betiğidir. Başlatmayı iç pakete delege eder; böylece çalıştırma komutu sade kalır.</p>
         </article>
 
         <article class="module-card">
           <h3>pipeline_http_bridge.py</h3>
-          <p>Owns the Unity-facing HTTP endpoints, session event storage, chunk decoding, and event retrieval flow.</p>
+          <p>Unity'nin gördüğü HTTP uç noktalarını, oturum olay depolamasını ve ses parçası çözümünü yönetir.</p>
         </article>
 
         <article class="module-card">
           <h3>config.py</h3>
-          <p>Collects environment loading, runtime constants, feature toggles, directory paths, and optional dependency detection.</p>
+          <p>Ortam değişkenleri, çalışma zamanı sabitleri, klasör yolları ve isteğe bağlı bağımlılık durumları burada toplanır.</p>
         </article>
 
         <article class="module-card">
           <h3>visualizer.py</h3>
-          <p>The orchestration hub. It manages queues, the SPL graph, classifier windows, STT publishing, and optional summary windows.</p>
+          <p>Kuyrukları, SPL grafiğini, sınıflandırma pencerelerini, STT yayımını ve özet tetiklerini koordine eden merkezdir.</p>
         </article>
 
         <article class="module-card">
           <h3>classification.py + build_reduced_yamnet.py</h3>
-          <p>One file loads the runtime classifier, while the other creates the reduced YAMNet model and label mapping used by deployment.</p>
+          <p>Biri çalışma zamanında sınıflandırıcıyı yükler, diğeri de azaltılmış YAMNet modelini ve etiket düzenini üretir.</p>
         </article>
 
         <article class="module-card">
           <h3>transcription.py + llm.py</h3>
-          <p>These handle language-aware layers: rolling Whisper transcription and compact Gemini interpretation windows.</p>
+          <p>Bunlar dil katmanlarını taşır: Whisper ile akan çözüm ve Gemini ile kısa çevresel yorum pencereleri.</p>
         </article>
       </div>
     </section>
@@ -962,32 +974,33 @@
     <section>
       <div class="section-head">
         <div>
-          <div class="chip">Outputs</div>
-          <h2>What the pipeline emits back into the system</h2>
+          <div class="chip">Üretilen Çıktılar</div>
+          <h2>Hat sonunda sisteme ne dönüyor</h2>
         </div>
         <p>
-          The backend is not just a classifier. It produces several event shapes that Unity can combine into accessible, contextual feedback.
+          Sunucu sadece bir sınıflandırıcı değildir. Unity'nin birleştirip kullanıcıya anlamlı şekilde sunabileceği
+          birkaç farklı olay tipi üretir.
         </p>
       </div>
 
       <div class="legend-grid">
         <article class="legend-card">
-          <h3>YAMNet events</h3>
-          <p>Top labels, dominant class, confidence, and SPL information for the analyzed window.</p>
+          <h3>YAMNet olayları</h3>
+          <p>Analiz edilen pencere için üst etiketleri, baskın sınıfı, güven değerini ve SPL bilgisini taşır.</p>
         </article>
         <article class="legend-card">
-          <h3>STT events</h3>
-          <p>Transcribed speech segments with effective window length, language, and timestamps.</p>
+          <h3>STT olayları</h3>
+          <p>Konuşma parçalarını etkin pencere süresi, dil ve zaman damgalarıyla birlikte taşır.</p>
         </article>
         <article class="legend-card">
-          <h3>LLM events</h3>
-          <p>Short environment summaries and user messages built from recent sound and speech context.</p>
+          <h3>LLM olayları</h3>
+          <p>Yakın ses ve metin bağlamından üretilen kısa çevre özeti ile kullanıcıya gösterilecek mesajları taşır.</p>
         </article>
       </div>
     </section>
 
     <p class="footer">
-      Open this page locally in a browser for a visual tour of the EchoSpaceAR Unity-to-Python audio system.
+      Bu sayfayı tarayıcıda açarak EchoSpaceAR'ın Unity ile Python arasında kurduğu ses hattını görsel olarak inceleyebilirsin.
     </p>
   </main>
 </body>
