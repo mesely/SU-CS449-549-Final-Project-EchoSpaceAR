@@ -1,68 +1,74 @@
-# Pipeline
+# Python Pipeline Server
 
-This repo runs a real-time audio pipeline with optional YAMNet classification, Whisper STT (faster-whisper), and Gemini (google-genai) integration.
+This folder contains the refactored Python runtime used by EchoSpaceAR for:
 
-Quick start (macOS):
+- real-time SPL visualization
+- reduced YAMNet sound classification
+- Whisper speech transcription
+- optional Gemini-based acoustic summaries
+- Unity-to-Python HTTP bridging
 
-1. Create and activate a Python venv (recommended Python 3.11+).
+## What Changed
+
+The runtime keeps the same behavior and entrypoint (`Pipeline.py`), but the large monolithic script is now split into smaller modules under `pipeline_runtime/`.
+
+- `Pipeline.py`: compatibility launcher
+- `pipeline_runtime/config.py`: runtime constants and path resolution
+- `pipeline_runtime/device_utils.py`: audio device discovery helpers
+- `pipeline_runtime/classification.py`: reduced/full YAMNet loading and inference
+- `pipeline_runtime/transcription.py`: Whisper session and pre-roll handling
+- `pipeline_runtime/llm.py`: Gemini prompt building, parsing, and logging
+- `pipeline_runtime/visualizer.py`: plotting, queues, workers, and event publishing
+- `pipeline_http_bridge.py`: Unity HTTP event bridge
+
+## Quick Start
+
+1. Create a virtual environment and install dependencies.
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-2. Place model files:
+2. Make sure the reduced model exists under `models/reduced_yamnet_savedmodel/`, or rebuild it:
 
-Alternatively set env vars in `.env`:
+```bash
+python build_reduced_yamnet.py
+```
 
-3. Run the pipeline (Unity mode example):
+3. Run the pipeline:
 
 ```bash
 python Pipeline.py
 ```
 
-Files:
-
-If you want me to place a small placeholder model or add more setup automation, tell me and I'll add it.
-Quick model setup
------------------
-- A small example `models/reduced_labels.json` is included.
-- Place your SavedModel under `models/reduced_yamnet_savedmodel/` (the project will call `tf.saved_model.load`).
-- To use the TF-Hub full YAMNet instead, set `USE_REDUCED = False` in `Pipeline.py`.
-
-macOS notes
------------
-- If you see `sounddevice` errors, install PortAudio on macOS:
+4. Optional host overrides:
 
 ```bash
-brew install portaudio
-source .venv/bin/activate
-pip install -r requirements.txt
+PIPELINE_HTTP_HOST=0.0.0.0 PIPELINE_HTTP_PORT=8000 python Pipeline.py
 ```
 
-Then run `python Pipeline.py`.
+## HTTP Endpoints
 
-If you want me to place a small placeholder model or add more setup automation, tell me and I'll add it.
+- `POST /client_hello`
+- `POST /audio_chunk`
+- `GET /events?session_id=<id>&since_unix=<timestamp>`
 
-BURAYI OKU AMINA KODUMUN HAYATINDA BASH MI GORDUN
-KESİN ÇALIŞTIRMA BOŞ YYAPMAYAN KISIM:
+## Logs
 
-Çalıştıran tanrısal kod 
-bash -lc 'set -e
-if [ -f .venv/bin/activate ]; then source .venv/bin/activate; fi
-python -m pip install --upgrade pip certifi || true
-export SSL_CERT_FILE="$(python -m certifi)"
-echo "Using SSL_CERT_FILE=$SSL_CERT_FILE"
-python -u build_reduced_yamnet.py
+Generated logs are written under `logs/`:
 
+- `classification_log.csv`
+- `classification_probs.csv`
+- `transcription_log.csv`
+- `llm_events.csv`
+- `llm_events.jsonl`
 
-Sonra şu: 
-source .venv/bin/activate
-python -m pip install --upgrade pip certifi
-export SSL_CERT_FILE="$(python -m certifi)"
-echo "Using SSL_CERT_FILE=$SSL_CERT_FILE"
-python -u build_reduced_yamnet.py
+## Visual Documentation
 
+Open the static explainer page at:
 
-Sonra:
+- `docs/python_pipeline_refactor.html`
+
+It summarizes the runtime flow, module map, and the refactor decisions in a browser-friendly format.

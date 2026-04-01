@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EchoSpaceAR Python Pipeline Refactor</title>
+  <style>
+    :root {
+      --bg: #f6efe5;
+      --bg-deep: #f0dfc5;
+      --card: rgba(255, 252, 247, 0.78);
+      --line: rgba(52, 38, 22, 0.12);
+      --ink: #2b2217;
+      --muted: #685847;
+      --accent: #0d7c66;
+      --accent-strong: #0f5f52;
+      --warm: #d97742;
+      --shadow: 0 22px 60px rgba(58, 39, 18, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(217, 119, 66, 0.16), transparent 30%),
+        radial-gradient(circle at top right, rgba(13, 124, 102, 0.18), transparent 28%),
+        linear-gradient(160deg, var(--bg) 0%, var(--bg-deep) 100%);
+      min-height: 100vh;
+    }
+
+    .shell {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 64px;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 48px;
+      border: 1px solid var(--line);
+      border-radius: 32px;
+      background: linear-gradient(135deg, rgba(255, 252, 247, 0.9), rgba(245, 232, 214, 0.82));
+      box-shadow: var(--shadow);
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -80px -100px auto;
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(13, 124, 102, 0.28), transparent 70%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 0.84rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent-strong);
+      background: rgba(13, 124, 102, 0.12);
+    }
+
+    h1,
+    h2,
+    h3 {
+      font-family: "Iowan Old Style", "Palatino Linotype", serif;
+      margin: 0;
+      line-height: 1.05;
+    }
+
+    h1 {
+      margin-top: 18px;
+      font-size: clamp(2.8rem, 6vw, 5rem);
+      max-width: 9ch;
+    }
+
+    .lead {
+      max-width: 720px;
+      margin-top: 18px;
+      font-size: 1.08rem;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    .hero-grid,
+    .section-grid,
+    .cards,
+    .flow,
+    .metrics {
+      display: grid;
+      gap: 18px;
+    }
+
+    .hero-grid {
+      grid-template-columns: 1.5fr 1fr;
+      margin-top: 28px;
+    }
+
+    .metrics {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .metric,
+    .card,
+    .flow-step,
+    .module,
+    .callout,
+    pre {
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: var(--card);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 12px 30px rgba(83, 56, 28, 0.08);
+    }
+
+    .metric,
+    .card,
+    .flow-step,
+    .module,
+    .callout {
+      padding: 22px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 2rem;
+      margin-bottom: 8px;
+      color: var(--accent-strong);
+    }
+
+    section {
+      margin-top: 26px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: end;
+      margin-bottom: 18px;
+    }
+
+    .section-header p {
+      max-width: 640px;
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .section-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cards {
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+
+    .card h3,
+    .module h3,
+    .flow-step h3 {
+      margin-bottom: 12px;
+      font-size: 1.35rem;
+    }
+
+    .card p,
+    .module p,
+    .flow-step p,
+    .callout p,
+    li {
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .flow {
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    }
+
+    .flow-step {
+      position: relative;
+      padding-top: 56px;
+    }
+
+    .flow-step span {
+      position: absolute;
+      top: 18px;
+      left: 18px;
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: rgba(217, 119, 66, 0.16);
+      color: var(--warm);
+      font-weight: 700;
+    }
+
+    .module small,
+    .chip {
+      display: inline-flex;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(13, 124, 102, 0.08);
+      color: var(--accent-strong);
+      font-size: 0.82rem;
+      margin-bottom: 10px;
+    }
+
+    pre {
+      margin: 0;
+      padding: 24px;
+      overflow: auto;
+      color: #24403a;
+      font-size: 0.95rem;
+      line-height: 1.65;
+    }
+
+    ul {
+      padding-left: 18px;
+      margin: 0;
+    }
+
+    .callout {
+      background: linear-gradient(135deg, rgba(13, 124, 102, 0.12), rgba(255, 252, 247, 0.8));
+    }
+
+    .footer {
+      margin-top: 22px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 0.95rem;
+    }
+
+    @media (max-width: 920px) {
+      .hero {
+        padding: 28px;
+      }
+
+      .hero-grid,
+      .section-grid,
+      .metrics {
+        grid-template-columns: 1fr;
+      }
+
+      .section-header {
+        flex-direction: column;
+        align-items: start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="eyebrow">EchoSpaceAR • Python Pipeline • Refactor</div>
+      <h1>Readable code, same runtime behavior.</h1>
+      <p class="lead">
+        This refactor keeps the original Unity-facing workflow intact, but replaces the old single-file
+        `Pipeline.py` with a cleaner runtime layout. The goal was simple: preserve what the system does,
+        while making it much easier to understand, extend, and debug.
+      </p>
+
+      <div class="hero-grid">
+        <div class="metrics">
+          <article class="metric">
+            <strong>1</strong>
+            Entry point stays the same: `Pipeline.py`.
+          </article>
+          <article class="metric">
+            <strong>7</strong>
+            Focused runtime modules under `pipeline_runtime/`.
+          </article>
+          <article class="metric">
+            <strong>0</strong>
+            Changes to `Android` and `Quest2_3`.
+          </article>
+        </div>
+
+        <aside class="callout">
+          <h3>Refactor rule</h3>
+          <p>
+            Behavior first. The refactor targets naming, structure, comments, duplicate removal, and
+            helper extraction. Audio flow, HTTP contracts, and model integration remain aligned with the
+            original pipeline.
+          </p>
+        </aside>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-header">
+        <div>
+          <div class="chip">Runtime Flow</div>
+          <h2>How the pipeline moves audio</h2>
+        </div>
+        <p>
+          Unity still sends chunks to the HTTP bridge. The bridge pushes audio into the visualizer, and
+          the visualizer fans the same stream into SPL plotting, YAMNet classification, Whisper STT, and
+          optional Gemini summaries.
+        </p>
+      </div>
+
+      <div class="flow">
+        <article class="flow-step">
+          <span>1</span>
+          <h3>Unity upload</h3>
+          <p>`/audio_chunk` receives float32 PCM frames and forwards them to the registered sink.</p>
+        </article>
+        <article class="flow-step">
+          <span>2</span>
+          <h3>Live SPL</h3>
+          <p>The visualizer computes block RMS dBFS and keeps the live matplotlib graph updated.</p>
+        </article>
+        <article class="flow-step">
+          <span>3</span>
+          <h3>YAMNet</h3>
+          <p>Background workers build rolling windows, infer label probabilities, and publish events.</p>
+        </article>
+        <article class="flow-step">
+          <span>4</span>
+          <h3>Whisper</h3>
+          <p>Speech-gated sessions use pre-roll buffering so short utterances are not clipped.</p>
+        </article>
+        <article class="flow-step">
+          <span>5</span>
+          <h3>Gemini</h3>
+          <p>Classifier and STT windows can be summarized into short user-facing environment messages.</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-header">
+        <div>
+          <div class="chip">Module Map</div>
+          <h2>What each file owns now</h2>
+        </div>
+        <p>
+          The new shape is intentionally boring in a good way: each file has one clear responsibility,
+          so future edits do not require reopening a giant mixed-purpose script.
+        </p>
+      </div>
+
+      <div class="cards">
+        <article class="module">
+          <small>Launcher</small>
+          <h3>Pipeline.py</h3>
+          <p>A thin compatibility entry point that simply calls the new runtime package.</p>
+        </article>
+        <article class="module">
+          <small>Configuration</small>
+          <h3>pipeline_runtime/config.py</h3>
+          <p>Central constants, environment loading, optional dependency flags, and path resolution.</p>
+        </article>
+        <article class="module">
+          <small>Audio I/O</small>
+          <h3>pipeline_runtime/device_utils.py</h3>
+          <p>Audio device listing, default-device selection, and sample-rate helpers.</p>
+        </article>
+        <article class="module">
+          <small>Models</small>
+          <h3>classification.py + transcription.py + llm.py</h3>
+          <p>Each model integration now has its own class and its own readable control flow.</p>
+        </article>
+        <article class="module">
+          <small>Orchestration</small>
+          <h3>pipeline_runtime/visualizer.py</h3>
+          <p>Owns queues, worker threads, plotting, session ids, and event publication.</p>
+        </article>
+        <article class="module">
+          <small>Networking</small>
+          <h3>pipeline_http_bridge.py</h3>
+          <p>Still exposes the same Unity endpoints, but now with smaller handler methods and cleaner event writes.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section-grid">
+      <article class="card">
+        <div class="chip">Before</div>
+        <h3>The old pain points</h3>
+        <ul>
+          <li>A very large `Pipeline.py` mixed setup, workers, UI, STT, YAMNet, LLM logic, and dead duplicate code.</li>
+          <li>Helper behavior was hard to locate because everything lived in one runtime file.</li>
+          <li>Understanding the HTTP bridge and runtime flow required jumping through long unrelated sections.</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <div class="chip">After</div>
+        <h3>The refactor wins</h3>
+        <ul>
+          <li>The entrypoint remains stable while the implementation becomes modular.</li>
+          <li>Short English comments now explain intent where the code was previously dense.</li>
+          <li>Duplicate dead code is removed, and repeated low-level helpers are centralized.</li>
+        </ul>
+      </article>
+    </section>
+
+    <section>
+      <div class="section-header">
+        <div>
+          <div class="chip">Structure Snapshot</div>
+          <h2>Folder view after refactor</h2>
+        </div>
+        <p>
+          The runtime is still local-script friendly, but it now has a real internal layout that is easy
+          to explain to another developer in one screen.
+        </p>
+      </div>
+
+      <pre><code>Python_Pipeline/server/
+├── Pipeline.py
+├── pipeline_http_bridge.py
+├── audio_buffer.py
+├── build_reduced_yamnet.py
+├── load_env.py
+├── README.md
+├── docs/
+│   └── python_pipeline_refactor.html
+└── pipeline_runtime/
+    ├── __init__.py
+    ├── main.py
+    ├── config.py
+    ├── device_utils.py
+    ├── utils.py
+    ├── classification.py
+    ├── transcription.py
+    ├── llm.py
+    └── visualizer.py</code></pre>
+    </section>
+
+    <section>
+      <div class="section-header">
+        <div>
+          <div class="chip">Stable Contracts</div>
+          <h2>What did not change</h2>
+        </div>
+        <p>
+          This matters as much as the cleanup itself. The refactor was designed to be safe for the rest
+          of the project, especially the Unity side.
+        </p>
+      </div>
+
+      <div class="cards">
+        <article class="card">
+          <h3>Same launcher</h3>
+          <p>Existing scripts can still run `python Pipeline.py` without learning a new command.</p>
+        </article>
+        <article class="card">
+          <h3>Same endpoints</h3>
+          <p>`/client_hello`, `/audio_chunk`, and `/events` keep their original job and response style.</p>
+        </article>
+        <article class="card">
+          <h3>Same core behavior</h3>
+          <p>Unity audio is still classified, speech can still be transcribed, and LLM summaries still build on those windows.</p>
+        </article>
+      </div>
+    </section>
+
+    <p class="footer">
+      Open this file locally in a browser to get a quick architectural tour of the refactored Python pipeline.
+    </p>
+  </main>
+</body>
+</html>
