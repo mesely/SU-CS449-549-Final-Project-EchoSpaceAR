@@ -33,6 +33,13 @@ def _env_str_set(name: str, default: tuple[str, ...]) -> set[str]:
     return {token.strip() for token in raw.split(",") if token.strip()}
 
 
+def _env_str(name: str, default: str) -> str:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip()
+
+
 # Load environment variables before optional integrations initialize.
 SERVER_DIR = Path(__file__).resolve().parent.parent
 load_env(".env")
@@ -178,7 +185,7 @@ SPEECH_OFF_THRESH = _env_float("SPEECH_OFF_THRESH", 0.28)
 SPEECH_MIN_ON_S = _env_float("SPEECH_MIN_ON_S", 0.40)
 SPEECH_MIN_OFF_S = _env_float("SPEECH_MIN_OFF_S", 0.40)
 SPEECH_ENERGY_MARGIN_DB = _env_float("SPEECH_ENERGY_MARGIN_DB", 4.0)
-WHISPER_LANGUAGE = "en"
+WHISPER_LANGUAGE = _env_str("WHISPER_LANGUAGE", "")
 REQUIRE_TOP_IS_SPEECH = False
 
 PREROLL_S = 1.5
@@ -221,11 +228,12 @@ GLOBAL_LLM_COOLDOWN_S = 2.0
 
 # EMA + hysteresis + OOD gate: ham p(c|z) skorlarini HUD kararina tasiyan katman.
 DECISION_EMA_LAMBDA = _env_float("DECISION_EMA_LAMBDA", 0.65)
-DECISION_ENTER_THRESH = _env_float("DECISION_ENTER_THRESH", 0.56)
-DECISION_EXIT_THRESH = _env_float("DECISION_EXIT_THRESH", 0.38)
+DECISION_ENTER_THRESH = _env_float("DECISION_ENTER_THRESH", 0.42)
+DECISION_EXIT_THRESH = _env_float("DECISION_EXIT_THRESH", 0.30)
 DECISION_MIN_HOLD_S = _env_float("DECISION_MIN_HOLD_S", 1.0)
-DECISION_SILENCE_MARGIN_DB = _env_float("DECISION_SILENCE_MARGIN_DB", 6.0)
-DECISION_IDLE_CONF_THRESH = _env_float("DECISION_IDLE_CONF_THRESH", 0.42)
+DECISION_SILENCE_MARGIN_DB = _env_float("DECISION_SILENCE_MARGIN_DB", 4.5)
+DECISION_IDLE_CONF_THRESH = _env_float("DECISION_IDLE_CONF_THRESH", 0.32)
+DECISION_AWARENESS_CONF_THRESH = _env_float("DECISION_AWARENESS_CONF_THRESH", 0.18)
 DECISION_OOD_ENTROPY_THRESH = _env_float("DECISION_OOD_ENTROPY_THRESH", 0.86)
 DECISION_OOD_MIN_TOP_PROB = _env_float("DECISION_OOD_MIN_TOP_PROB", 0.30)
 DECISION_OOD_MIN_MARGIN = _env_float("DECISION_OOD_MIN_MARGIN", 0.05)
@@ -251,7 +259,6 @@ NON_ACTIONABLE_LABELS = _env_str_set(
         "dog",
         "cat",
         "bird",
-        "phone_ring",
         "car_bus_truck",
         "rail",
         "aircraft",
@@ -264,6 +271,7 @@ ACTIONABLE_PRIORITY_MAP = {
     "vehicle_horn": "high",
     "glass_break": "high",
     "alarms_buzzer": "high",
+    "phone_ring": "high",
     "door_knock": "medium",
 }
 ACTIONABLE_LABELS = set(ACTIONABLE_PRIORITY_MAP)

@@ -162,6 +162,7 @@ OPTIONAL_METADATA_COLUMNS = [
 ]
 
 NEUTRAL_OUTPUT_LABELS = {"silence", "idle", "other", "ood", "Silence"}
+EVENT_FOCUS_EXCLUDED_LABELS = {"other", "Silence", "silence", "idle", "ood"}
 DEFAULT_LABEL_SEPARATOR = ";"
 SUMMARY_FIELDNAMES = [
     "timestamp_utc",
@@ -200,6 +201,9 @@ SUMMARY_FIELDNAMES = [
     "mono_raw_match_rate",
     "mono_spatial_valid_rate",
     "stereo_spatial_active_rate",
+    "semantic_window_rate",
+    "generic_collapse_rate",
+    "semantic_clip_coverage_rate",
     "silence_rate",
     "idle_rate",
     "other_rate",
@@ -243,6 +247,7 @@ PREDICTION_FIELDNAMES = [
     "spatial_direction_confidence",
     "spl_dbfs",
     "decision_state",
+    "decision_hud_action",
     "decision_priority",
     "speech_prob",
     "speech_gate_state",
@@ -299,6 +304,7 @@ class WindowRecord:
     dominant_confidence: float
     dominant_top3: list[tuple[str, float]]
     decision_state: str
+    decision_hud_action: str
     decision_priority: str
     speech_prob: float
     speech_gate_state: str
@@ -324,6 +330,8 @@ class ClipResult:
     predicted_label: str
     predicted_confidence: float
     dominant_top3: list[tuple[str, float]]
+    decision_eval_labels: tuple[str, ...]
+    alert_eval_labels: tuple[str, ...]
     raw_predicted_label: str
     raw_predicted_confidence: float
     raw_top3: list[tuple[str, float]]
@@ -638,8 +646,8 @@ def target_labels_for_sample(sample: SampleRecord) -> set[str]:
 
 
 def decision_target_set(sample: SampleRecord) -> set[str]:
-    """Return the collapsed decision-target set for one sample."""
-    return set(sample.decision_target_labels or (collapse_label_for_decision(sample.label),))
+    """Return the semantic target set that should appear in the awareness output."""
+    return set(sample.positive_labels or (sample.label,))
 
 
 def clean_old_png_artifacts(directory: str) -> list[str]:
@@ -1133,7 +1141,7 @@ def build_sample_records(args: argparse.Namespace, label_map: dict[str, str]) ->
                     source_label=format_labels(source_labels or raw_labels),
                     dataset_name=dataset_name,
                     positive_labels=tuple(mapped_labels),
-                    decision_target_labels=unique_labels(collapse_label_for_decision(label) for label in mapped_labels),
+                    decision_target_labels=tuple(mapped_labels),
                     metadata=metadata,
                     onset_time=parse_optional_float(row.get("onset_time")),
                     prediction_time=parse_optional_float(row.get("prediction_time")),
@@ -1207,6 +1215,24 @@ def average_topk(labels: list[str], probabilities: np.ndarray, limit: int) -> li
     """Return a stable top-k list from one averaged probability vector."""
     order = np.argsort(probabilities)[::-1]
     return [(labels[index], float(probabilities[index])) for index in order[: min(limit, len(order))]]
+
+
+def topk_from_scores(
+    labels: list[str],
+    scores: np.ndarray | Iterable[float],
+    limit: int,
+    *,
+    exclude_labels: set[str] | None = None,
+) -> list[tuple[str, float]]:
+    """Return top-k label scores, optionally skipping neutral labels first."""
+    score_array = np.asarray(list(scores), dtype=np.float64)
+    pairs = [(label, float(score_array[index])) for index, label in enumerate(labels)]
+    ranked = sorted(pairs, key=lambda item: item[1], reverse=True)
+    if exclude_labels:
+        filtered = [item for item in ranked if item[0] not in exclude_labels]
+        if filtered and filtered[0][1] > 0.0:
+            ranked = filtered
+    return ranked[: min(limit, len(ranked))]
 
 
 def compute_ece_from_arrays(
@@ -1360,6 +1386,7 @@ def append_prediction_rows(
                 "spatial_direction_confidence": f"{record.spatial_direction_confidence:.6f}",
                 "spl_dbfs": f"{record.spl_dbfs:.6f}",
                 "decision_state": record.decision_state,
+                "decision_hud_action": record.decision_hud_action,
                 "decision_priority": record.decision_priority,
                 "speech_prob": f"{record.speech_prob:.6f}",
                 "speech_gate_state": record.speech_gate_state,
@@ -1834,6 +1861,7 @@ def plot_core_run_summary(summary_rows: list[dict[str, str | float | int]], plot
         ("Raw Top-1", "accuracy"),
         ("Raw Top-3", "topk_hit_rate"),
         ("Macro F1", "f1"),
+        ("Semantik pencere", "semantic_window_rate"),
         ("HUD Hit", "decision_target_hit_rate"),
         ("Aksiyon Hit", "actionable_hud_hit_rate"),
     ]
@@ -1944,7 +1972,7 @@ def plot_behavior_run_summary(summary_rows: list[dict[str, str | float | int]], 
         ("Flapping/dk", "flapping_transitions_per_min"),
         ("Gate toggle/dk", "speech_gate_toggles_per_min"),
         ("Yanlis alarm/dk", "false_alerts_per_minute"),
-        ("Other orani", "other_rate"),
+        ("Generic collapse", "generic_collapse_rate"),
     ]
     labels = [item[0] for item in metrics]
     old_values = [float(legacy_row[item[1]]) for item in metrics]
@@ -1982,9 +2010,10 @@ def plot_arhud_summary(summary_rows: list[dict[str, str | float | int]], plot_pa
         return
 
     metrics = [
+        ("Semantik pencere", "semantic_window_rate"),
+        ("Semantik klip", "semantic_clip_coverage_rate"),
         ("Aksiyon yakalama", "actionable_hud_hit_rate"),
         ("Notr bastirma", "non_actionable_suppression_rate"),
-        ("Genel HUD hit", "decision_target_hit_rate"),
     ]
     labels = [item[0] for item in metrics]
     old_values = [float(legacy_row[item[1]]) for item in metrics]
@@ -2022,6 +2051,7 @@ def plot_stereo_mono_summary(summary_rows: list[dict[str, str | float | int]], p
 
     metrics = [
         ("Raw Top-1", "accuracy"),
+        ("Semantik pencere", "semantic_window_rate"),
         ("HUD Hit", "decision_target_hit_rate"),
         ("Aksiyon Hit", "actionable_hud_hit_rate"),
         ("Spatial aktif", "stereo_spatial_active_rate"),
@@ -2284,31 +2314,48 @@ def aggregate_clip_result(
     pipeline_variant: str,
     window_records: list[WindowRecord],
     labels: list[str],
-    raw_prob_sum: np.ndarray,
+    raw_prob_peak: np.ndarray,
     raw_topk: int,
 ) -> ClipResult:
-    """Collapse one clip's windows into one clip-level result."""
-    dominant_counter: Counter[str] = Counter()
+    """Collapse one clip into event-presence and HUD-style summary labels."""
+    dominant_peak_scores: defaultdict[str, float] = defaultdict(float)
     dominant_conf_sums: defaultdict[str, float] = defaultdict(float)
+    dominant_counter: Counter[str] = Counter()
+    alert_peak_scores: defaultdict[str, float] = defaultdict(float)
+
     for record in window_records:
         dominant_counter[record.dominant_label] += 1
         dominant_conf_sums[record.dominant_label] += float(record.dominant_confidence)
+        dominant_peak_scores[record.dominant_label] = max(dominant_peak_scores[record.dominant_label], float(record.dominant_confidence))
+        if record.decision_hud_action in {"show", "critical"}:
+            alert_peak_scores[record.dominant_label] = max(alert_peak_scores[record.dominant_label], float(record.dominant_confidence))
+        for label, score in record.dominant_top3:
+            dominant_peak_scores[label] = max(dominant_peak_scores[label], float(score))
+            if record.decision_hud_action in {"show", "critical"} and label in current_config.ACTIONABLE_LABELS:
+                alert_peak_scores[label] = max(alert_peak_scores[label], float(score))
 
-    ranked_dominant = label_score_pairs_from_counter(dominant_counter, dominant_conf_sums)
-    predicted_label = ranked_dominant[0]
-    predicted_confidence = safe_div(dominant_conf_sums[predicted_label], dominant_counter[predicted_label])
-    dominant_top3 = [
-        (
-            label,
-            safe_div(dominant_conf_sums[label], dominant_counter[label]),
-        )
-        for label in ranked_dominant[:3]
-    ]
+    ranked_dominant = sorted(
+        dominant_peak_scores.items(),
+        key=lambda item: (item[1], dominant_counter[item[0]], dominant_conf_sums[item[0]]),
+        reverse=True,
+    )
+    ranked_semantic = [item for item in ranked_dominant if item[0] not in EVENT_FOCUS_EXCLUDED_LABELS]
+    if not ranked_semantic:
+        ranked_semantic = ranked_dominant
 
-    averaged_probs = raw_prob_sum / max(len(window_records), 1)
-    raw_top3 = average_topk(labels, averaged_probs, limit=3)
+    predicted_label, predicted_confidence = ranked_semantic[0]
+    dominant_top3 = [(label, float(score)) for label, score in ranked_semantic[:3]]
+    decision_eval_labels = tuple(label for label, _score in ranked_semantic[: max(1, raw_topk)])
+    alert_eval_labels = tuple(
+        label
+        for label, _score in sorted(alert_peak_scores.items(), key=lambda item: item[1], reverse=True)[: max(1, raw_topk)]
+    )
+
+    raw_top3 = topk_from_scores(labels, raw_prob_peak, limit=3, exclude_labels=EVENT_FOCUS_EXCLUDED_LABELS)
     raw_predicted_label, raw_predicted_confidence = raw_top3[0]
-    raw_eval_labels = tuple(label for label, _score in average_topk(labels, averaged_probs, limit=max(1, raw_topk)))
+    raw_eval_labels = tuple(
+        label for label, _score in topk_from_scores(labels, raw_prob_peak, limit=max(1, raw_topk), exclude_labels=EVENT_FOCUS_EXCLUDED_LABELS)
+    )
 
     return ClipResult(
         sample=sample,
@@ -2316,6 +2363,8 @@ def aggregate_clip_result(
         predicted_label=predicted_label,
         predicted_confidence=float(predicted_confidence),
         dominant_top3=dominant_top3,
+        decision_eval_labels=decision_eval_labels,
+        alert_eval_labels=alert_eval_labels,
         raw_predicted_label=raw_predicted_label,
         raw_predicted_confidence=float(raw_predicted_confidence),
         raw_top3=raw_top3,
@@ -2339,7 +2388,7 @@ def evaluate_sample_pair(
 
     legacy_windows: list[WindowRecord] = []
     current_windows: list[WindowRecord] = []
-    raw_prob_sum: np.ndarray | None = None
+    raw_prob_peak: np.ndarray | None = None
     label_names: list[str] | None = None
 
     for window_index, window_start_s, window_end_s, frames_window in iterate_windows(
@@ -2352,10 +2401,10 @@ def evaluate_sample_pair(
         spl_dbfs = 20.0 * np.log10(float(np.sqrt(np.mean(mono_window.astype(np.float64) ** 2) + 1e-9)) + 1e-9)
         labels, probabilities = classifier.predict_all(mono_window, sample_rate)
 
-        if raw_prob_sum is None:
-            raw_prob_sum = np.zeros_like(probabilities, dtype=np.float64)
+        if raw_prob_peak is None:
+            raw_prob_peak = np.zeros_like(probabilities, dtype=np.float64)
             label_names = list(labels)
-        raw_prob_sum += np.asarray(probabilities, dtype=np.float64)
+        raw_prob_peak = np.maximum(raw_prob_peak, np.asarray(probabilities, dtype=np.float64))
 
         legacy = run_legacy_window(
             labels=labels,
@@ -2393,6 +2442,7 @@ def evaluate_sample_pair(
                 dominant_confidence=float(legacy.dominant_prob),
                 dominant_top3=[(item["label"], float(item["prob"])) for item in legacy.raw_top5[:3]],
                 decision_state="raw",
+                decision_hud_action=("show" if legacy.dominant_label in current_config.ACTIONABLE_LABELS else "context"),
                 decision_priority="none",
                 speech_prob=float(legacy.speech_prob),
                 speech_gate_state=legacy.gate_state,
@@ -2423,6 +2473,7 @@ def evaluate_sample_pair(
                 dominant_confidence=float(current.decision.confidence),
                 dominant_top3=[(item["label"], float(item["prob"])) for item in current.decision.top5[:3]],
                 decision_state=current.decision.state,
+                decision_hud_action=current.decision.hud_action,
                 decision_priority=current.decision.priority,
                 speech_prob=float(current.decision.speech_prob),
                 speech_gate_state=current.gate_state,
@@ -2440,7 +2491,7 @@ def evaluate_sample_pair(
             )
         )
 
-    if raw_prob_sum is None or label_names is None:
+    if raw_prob_peak is None or label_names is None:
         raise RuntimeError(f"Degerlendirilebilir pencere olusmadi: {sample.audio_path}")
 
     legacy_clip = aggregate_clip_result(
@@ -2448,7 +2499,7 @@ def evaluate_sample_pair(
         args.legacy_variant_label,
         legacy_windows,
         label_names,
-        raw_prob_sum,
+        raw_prob_peak,
         args.raw_topk,
     )
     current_clip = aggregate_clip_result(
@@ -2456,7 +2507,7 @@ def evaluate_sample_pair(
         args.current_variant_label,
         current_windows,
         label_names,
-        raw_prob_sum,
+        raw_prob_peak,
         args.raw_topk,
     )
     return legacy_clip, current_clip
@@ -2530,29 +2581,29 @@ def raw_topk_hit(result: ClipResult) -> bool:
 
 
 def decision_target_hit(result: ClipResult) -> bool:
-    """Return whether the decision output matches the HUD-oriented target set."""
-    return result.predicted_label in decision_target_set(result.sample)
+    """Return whether the semantic awareness output matches any target label."""
+    return bool(set(result.decision_eval_labels) & decision_target_set(result.sample))
 
 
 def actionable_target_labels(sample: SampleRecord) -> set[str]:
     """Return only the actionable target labels for one sample."""
-    return decision_target_set(sample) & current_config.ACTIONABLE_LABELS
+    return set(sample.positive_labels or (sample.label,)) & current_config.ACTIONABLE_LABELS
 
 
 def is_non_actionable_only(sample: SampleRecord) -> bool:
-    """Return whether the sample should collapse to a neutral HUD state."""
-    targets = decision_target_set(sample)
-    return not actionable_target_labels(sample) and bool(targets) and targets.issubset(NEUTRAL_OUTPUT_LABELS)
+    """Return whether the sample carries only informational, non-alert labels."""
+    targets = set(sample.positive_labels or (sample.label,))
+    return bool(targets) and not (targets & current_config.ACTIONABLE_LABELS)
 
 
 def actionable_decision_hit(result: ClipResult) -> bool:
     """Return whether the predicted HUD label hits an actionable target."""
-    return result.predicted_label in actionable_target_labels(result.sample)
+    return bool(set(result.alert_eval_labels) & actionable_target_labels(result.sample))
 
 
 def neutral_suppression_hit(result: ClipResult) -> bool:
-    """Return whether the decision output stays in the intended neutral state."""
-    return result.predicted_label in decision_target_set(result.sample)
+    """Return whether non-actionable clips avoid alert-style HUD output."""
+    return all(record.decision_hud_action not in {"show", "critical"} for record in result.windows)
 
 
 def primary_hud_target(sample: SampleRecord) -> str:
@@ -2560,10 +2611,7 @@ def primary_hud_target(sample: SampleRecord) -> str:
     actionable_targets = actionable_target_labels(sample)
     if actionable_targets:
         return sorted(actionable_targets)[0]
-    targets = decision_target_set(sample)
-    for candidate in ("idle", "other", "silence", "ood"):
-        if candidate in targets:
-            return candidate
+    targets = set(sample.positive_labels or (sample.label,))
     return sorted(targets)[0] if targets else collapse_label_for_decision(sample.label)
 
 
@@ -2622,7 +2670,7 @@ def summarize_variant_rows(
     labels_in_run = sorted(
         set(class_support)
         | set(raw_pred_counter)
-        | {result.predicted_label for result in clip_results if result.predicted_label not in NEUTRAL_OUTPUT_LABELS}
+        | {label for result in clip_results for label in result.decision_eval_labels if label not in EVENT_FOCUS_EXCLUDED_LABELS}
     )
 
     per_class_rows: list[dict[str, str | float | int]] = []
@@ -2694,6 +2742,9 @@ def summarize_variant_rows(
                 "mono_raw_match_rate": "",
                 "mono_spatial_valid_rate": "",
                 "stereo_spatial_active_rate": "",
+                "semantic_window_rate": "",
+                "generic_collapse_rate": "",
+                "semantic_clip_coverage_rate": "",
                 "silence_rate": "",
                 "idle_rate": "",
                 "other_rate": "",
@@ -2726,8 +2777,9 @@ def summarize_variant_rows(
     for records in windows_by_clip.values():
         previous_wrong_label = None
         for record in records:
-            target_decisions = decision_target_set(record.sample)
-            is_wrong_alert = record.dominant_label not in NEUTRAL_OUTPUT_LABELS and record.dominant_label not in target_decisions
+            target_decisions = actionable_target_labels(record.sample)
+            is_alert = record.decision_hud_action in {"show", "critical"}
+            is_wrong_alert = is_alert and record.dominant_label not in target_decisions
             current_wrong_label = record.dominant_label if is_wrong_alert else None
             if current_wrong_label is not None and current_wrong_label != previous_wrong_label:
                 wrong_alert_starts += 1
@@ -2741,6 +2793,15 @@ def summarize_variant_rows(
     speech_gate_open_ratio = safe_div(
         sum(record.speech_gate_state == "RECORDING" for record in all_window_records),
         total_window_count,
+    )
+    semantic_window_rate = safe_div(
+        sum(record.dominant_label not in NEUTRAL_OUTPUT_LABELS for record in all_window_records),
+        total_window_count,
+    )
+    generic_collapse_rate = 1.0 - semantic_window_rate
+    semantic_clip_coverage_rate = safe_div(
+        sum(any(record.dominant_label not in NEUTRAL_OUTPUT_LABELS for record in result.windows) for result in clip_results),
+        total,
     )
 
     mono_records = [record for record in all_window_records if record.input_channels == 1]
@@ -2821,6 +2882,9 @@ def summarize_variant_rows(
         "mono_raw_match_rate": cross_metrics.mono_raw_match_rate,
         "mono_spatial_valid_rate": mono_spatial_valid_rate,
         "stereo_spatial_active_rate": stereo_spatial_active_rate,
+        "semantic_window_rate": semantic_window_rate,
+        "generic_collapse_rate": generic_collapse_rate,
+        "semantic_clip_coverage_rate": semantic_clip_coverage_rate,
         "silence_rate": safe_div(
             sum(record.dominant_label in {"silence", "Silence"} for record in all_window_records),
             total_window_count,
@@ -2875,6 +2939,8 @@ def print_run_summary(rows: Iterable[dict[str, str | float | int]]) -> None:
         print(f"Raw Top-1 hit           : {float(overall_row['accuracy']):.4f}")
         print(f"Raw Top-K hit           : {float(overall_row['topk_hit_rate']):.4f}")
         print(f"Multilabel Macro F1@K   : {float(overall_row['f1']):.4f}")
+        print(f"Semantik pencere orani  : {float(overall_row['semantic_window_rate']):.4f}")
+        print(f"Generic collapse orani  : {float(overall_row['generic_collapse_rate']):.4f}")
         print(f"HUD karar hit           : {float(overall_row['decision_target_hit_rate']):.4f}")
         print(f"Aksiyon HUD hit         : {float(overall_row['actionable_hud_hit_rate']):.4f}")
         print(f"Notr bastirma orani     : {float(overall_row['non_actionable_suppression_rate']):.4f}")

@@ -781,8 +781,14 @@ class RealTimeSPLVisualizer:
         with self._stt_lock:
             self.latest_transcript = text
 
+        language = "unknown"
+        language_confidence = 0.0
+        if self.stt is not None:
+            language = getattr(self.stt, "latest_language", "unknown") or "unknown"
+            language_confidence = float(getattr(self.stt, "latest_language_probability", 0.0) or 0.0)
+
         shown = text if len(text) <= 60 else f"{text[:57]}..."
-        self.text_stt.set_text(f"STT: {shown}")
+        self.text_stt.set_text(f"STT[{language}]: {shown}")
 
         try:
             timestamp_unix = time.time()
@@ -793,6 +799,8 @@ class RealTimeSPLVisualizer:
                         f"{timestamp_unix:.3f}",
                         f"{effective_window:.3f}",
                         int(sr_in),
+                        language,
+                        f"{language_confidence:.6f}",
                         text,
                     ]
                 )
@@ -809,8 +817,8 @@ class RealTimeSPLVisualizer:
                 eff_window_s=float(effective_window),
                 samplerate_hz=int(sr_in),
                 text=text,
-                language="en",
-                confidence=1.0,
+                language=language,
+                confidence=language_confidence,
             )
         except Exception as exc:
             print(f"[STT] Failed to push STT event: {exc}")
@@ -1046,7 +1054,7 @@ class RealTimeSPLVisualizer:
             if needs_header:
                 with open(STT_CSV_PATH, "a", newline="") as handle:
                     csv.writer(handle).writerow(
-                        ["iso_time", "unix_time", "window_s", "samplerate_hz", "text"]
+                        ["iso_time", "unix_time", "window_s", "samplerate_hz", "language", "language_confidence", "text"]
                     )
             print(f"[CSV] Logging STT to: {STT_CSV_PATH}")
         except Exception as exc:

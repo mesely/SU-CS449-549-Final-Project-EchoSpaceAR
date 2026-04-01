@@ -11,6 +11,7 @@ from .config import (
     ACTIONABLE_LABELS,
     ACTIONABLE_PRIORITY_MAP,
     CRITICAL_LABELS,
+    DECISION_AWARENESS_CONF_THRESH,
     DECISION_EMA_LAMBDA,
     DECISION_ENTER_THRESH,
     DECISION_EXIT_THRESH,
@@ -138,6 +139,8 @@ class PriorityDecisionLayer:
         top_prob = float(self._ema_probs[top_index])
         raw_top_label = self._labels[int(np.argmax(probs))]
         raw_top_prob = float(np.max(probs))
+        semantic_label, semantic_prob = self._pick_semantic_candidate(order)
+        actionable_label, actionable_prob = self._pick_actionable_candidate(order)
 
         second_prob = float(self._ema_probs[int(order[1])]) if len(order) > 1 else 0.0
         margin = top_prob - second_prob
@@ -158,7 +161,7 @@ class PriorityDecisionLayer:
         is_ood = (entropy_norm >= DECISION_OOD_ENTROPY_THRESH and top_prob < DECISION_ENTER_THRESH) or (
             top_prob < DECISION_OOD_MIN_TOP_PROB and margin < DECISION_OOD_MIN_MARGIN
         )
-        is_actionable = top_label in ACTIONABLE_LABELS and top_prob >= DECISION_ENTER_THRESH
+        is_actionable = actionable_label is not None and actionable_prob >= DECISION_ENTER_THRESH
 
         if is_ood:
             self._deactivate(timestamp_unix)
@@ -187,17 +190,17 @@ class PriorityDecisionLayer:
         if self._active_label is not None:
             active_prob = self._prob_for(self._active_label)
             active_priority = _priority_for(self._active_label)
-            candidate_priority = _priority_for(top_label)
+            candidate_priority = _priority_for(actionable_label or "")
             priority_jump = (
                 PRIORITY_RANK.get(candidate_priority, 0) > PRIORITY_RANK.get(active_priority, 0)
-                and top_prob >= (DECISION_ENTER_THRESH + DECISION_PRIORITY_SWITCH_MARGIN)
+                and actionable_prob >= (DECISION_ENTER_THRESH + DECISION_PRIORITY_SWITCH_MARGIN)
             )
 
             if priority_jump:
-                self._activate(top_label, timestamp_unix)
+                self._activate(actionable_label, timestamp_unix)
                 return self._active_snapshot(
-                    top_label,
-                    top_prob,
+                    actionable_label,
+                    actionable_prob,
                     raw_top_label,
                     raw_top_prob,
                     entropy,
@@ -208,7 +211,7 @@ class PriorityDecisionLayer:
                     speech_prob,
                     top5,
                     state="active",
-                    hud_action=_hud_action_for(top_label),
+                    hud_action=_hud_action_for(actionable_label),
                 )
 
             if active_prob >= DECISION_EXIT_THRESH and not is_silence:
@@ -271,10 +274,10 @@ class PriorityDecisionLayer:
             )
 
         if is_actionable:
-            self._activate(top_label, timestamp_unix)
+            self._activate(actionable_label, timestamp_unix)
             return self._active_snapshot(
-                top_label,
-                top_prob,
+                actionable_label,
+                actionable_prob,
                 raw_top_label,
                 raw_top_prob,
                 entropy,
@@ -285,10 +288,10 @@ class PriorityDecisionLayer:
                 speech_prob,
                 top5,
                 state="active",
-                hud_action=_hud_action_for(top_label),
+                hud_action=_hud_action_for(actionable_label),
             )
 
-        if top_label in IDLE_LABELS or top_prob < DECISION_IDLE_CONF_THRESH:
+        if semantic_label is None:
             return self._snapshot(
                 label="idle",
                 confidence=top_prob,
@@ -311,14 +314,60 @@ class PriorityDecisionLayer:
                 top5=top5,
             )
 
-        state_label = top_label if top_label not in NON_ACTIONABLE_LABELS else "other"
+        if semantic_label in IDLE_LABELS and semantic_prob < DECISION_IDLE_CONF_THRESH:
+            return self._snapshot(
+                label="idle",
+                confidence=semantic_prob,
+                raw_label=raw_top_label,
+                raw_confidence=raw_top_prob,
+                state="idle",
+                hud_action="neutral",
+                priority="none",
+                onset_unix=None,
+                offset_unix=self._last_offset_unix,
+                entropy=entropy,
+                entropy_norm=entropy_norm,
+                margin=margin,
+                is_silence=False,
+                is_ood=False,
+                is_actionable=False,
+                spl_dbfs=spl_dbfs,
+                spatial=spatial,
+                speech_prob=speech_prob,
+                top5=top5,
+            )
+
+        if semantic_label in IDLE_LABELS:
+            return self._snapshot(
+                label=semantic_label,
+                confidence=semantic_prob,
+                raw_label=raw_top_label,
+                raw_confidence=raw_top_prob,
+                state="ambient",
+                hud_action="ambient",
+                priority="none",
+                onset_unix=None,
+                offset_unix=self._last_offset_unix,
+                entropy=entropy,
+                entropy_norm=entropy_norm,
+                margin=margin,
+                is_silence=False,
+                is_ood=False,
+                is_actionable=False,
+                spl_dbfs=spl_dbfs,
+                spatial=spatial,
+                speech_prob=speech_prob,
+                top5=top5,
+            )
+
+        state_label = semantic_label if semantic_label not in NON_ACTIONABLE_LABELS else semantic_label
         return self._snapshot(
             label=state_label,
-            confidence=top_prob,
+            confidence=semantic_prob,
             raw_label=raw_top_label,
             raw_confidence=raw_top_prob,
-            state="other",
-            hud_action="neutral",
+            state="aware",
+            hud_action=("caption" if semantic_label == SPEECH_LABEL else "context"),
             priority="none",
             onset_unix=None,
             offset_unix=self._last_offset_unix,
@@ -347,6 +396,24 @@ class PriorityDecisionLayer:
         if self._ema_probs is None or label not in self._labels:
             return 0.0
         return float(self._ema_probs[self._labels.index(label)])
+
+    def _pick_semantic_candidate(self, order: np.ndarray) -> tuple[str | None, float]:
+        for index in order:
+            label = self._labels[int(index)]
+            prob = float(self._ema_probs[int(index)])
+            if label in {MODEL_SILENCE_LABEL, "other"}:
+                continue
+            if prob >= DECISION_AWARENESS_CONF_THRESH:
+                return label, prob
+        return None, 0.0
+
+    def _pick_actionable_candidate(self, order: np.ndarray) -> tuple[str | None, float]:
+        for index in order:
+            label = self._labels[int(index)]
+            if label not in ACTIONABLE_LABELS:
+                continue
+            return label, float(self._ema_probs[int(index)])
+        return None, 0.0
 
     def _activate(self, label: str, timestamp_unix: float) -> None:
         if self._active_label != label:

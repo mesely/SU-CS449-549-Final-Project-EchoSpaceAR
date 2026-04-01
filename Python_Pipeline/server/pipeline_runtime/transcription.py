@@ -34,7 +34,7 @@ class WhisperTranscriber:
 
         self.model = WhisperModel(model_size, compute_type=compute_type)
         self.target_sr = target_sr
-        self.language = WHISPER_LANGUAGE
+        self.language = WHISPER_LANGUAGE or None
 
         self._buf = np.zeros(0, dtype=np.float32)
         self._pre = np.zeros(0, dtype=np.float32)
@@ -45,6 +45,8 @@ class WhisperTranscriber:
         self._session_start_ts: float | None = None
         self._last_decode_ts = 0.0
         self.latest_text = ""
+        self.latest_language = self.language or "auto"
+        self.latest_language_probability = 0.0
 
     def feed_preroll(self, samples: np.ndarray, input_sr: float) -> None:
         """Keep the latest `PREROLL_S` seconds available for the next session."""
@@ -80,6 +82,8 @@ class WhisperTranscriber:
         self._session_start_ts = time.time()
         self._last_decode_ts = 0.0
         self.latest_text = ""
+        self.latest_language = self.language or "auto"
+        self.latest_language_probability = 0.0
 
     def stop_session(self, finalize: bool = True) -> tuple[str | None, float]:
         """Stop the session and optionally decode the buffered audio one last time."""
@@ -127,7 +131,7 @@ class WhisperTranscriber:
                 audio = self._buf[-samples_to_keep:] if self._buf.size > samples_to_keep else self._buf.copy()
 
         effective_window = float(audio.size) / float(self.target_sr)
-        segments, _info = self.model.transcribe(
+        segments, info = self.model.transcribe(
             audio,
             language=self.language,
             task="transcribe",
@@ -143,5 +147,7 @@ class WhisperTranscriber:
             without_timestamps=True,
         )
         text = "".join(segment.text for segment in segments).strip()
+        self.latest_language = getattr(info, "language", None) or self.language or "unknown"
+        self.latest_language_probability = float(getattr(info, "language_probability", 0.0) or 0.0)
         self._last_decode_ts = time.time()
         return (text if len(text) >= STT_MIN_TEXT_LEN else None, effective_window)
