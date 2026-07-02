@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EchoSpace-AR Unity + Python Kurulum Rehberi</title>
+  <style>
+    :root {
+      --bg: #f5f1e8;
+      --panel: #fffaf1;
+      --panel-2: #fffdf8;
+      --ink: #1c1b17;
+      --muted: #625b4d;
+      --line: #ddd0bb;
+      --accent: #1d6b62;
+      --accent-2: #d46a30;
+      --warn: #9f3a22;
+      --soft-accent: #dff0ec;
+      --soft-warn: #fbe6dd;
+      --shadow: 0 16px 40px rgba(53, 44, 24, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(29, 107, 98, 0.08), transparent 28%),
+        radial-gradient(circle at top right, rgba(212, 106, 48, 0.08), transparent 32%),
+        var(--bg);
+      color: var(--ink);
+      line-height: 1.6;
+    }
+
+    a {
+      color: var(--accent);
+    }
+
+    .page {
+      width: min(1200px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 24px 0 48px;
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 24px;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 16px;
+      align-self: start;
+      background: rgba(255, 250, 241, 0.88);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .brand {
+      margin-bottom: 16px;
+    }
+
+    .brand h1 {
+      font-size: 1.1rem;
+      margin: 0 0 8px;
+      line-height: 1.3;
+    }
+
+    .brand p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    .toc {
+      display: grid;
+      gap: 8px;
+    }
+
+    .toc a {
+      display: block;
+      padding: 9px 11px;
+      border-radius: 10px;
+      text-decoration: none;
+      color: var(--ink);
+      background: transparent;
+      border: 1px solid transparent;
+      font-size: 0.95rem;
+    }
+
+    .toc a:hover {
+      background: var(--panel-2);
+      border-color: var(--line);
+    }
+
+    .content {
+      display: grid;
+      gap: 20px;
+    }
+
+    .hero,
+    .card {
+      background: rgba(255, 250, 241, 0.92);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .hero {
+      padding: 28px;
+      position: relative;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -50px;
+      top: -50px;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(29, 107, 98, 0.16), transparent 65%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--soft-accent);
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 0.82rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .hero h2 {
+      font-size: clamp(1.8rem, 3.4vw, 3rem);
+      margin: 12px 0 12px;
+      line-height: 1.1;
+      max-width: 12ch;
+    }
+
+    .hero p {
+      max-width: 72ch;
+      color: var(--muted);
+      margin: 0 0 16px;
+      font-size: 1rem;
+    }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .badge {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      font-size: 0.92rem;
+    }
+
+    .card {
+      padding: 24px;
+    }
+
+    h3 {
+      margin-top: 0;
+      font-size: 1.45rem;
+      line-height: 1.2;
+    }
+
+    h4 {
+      margin: 20px 0 10px;
+      font-size: 1.08rem;
+    }
+
+    p,
+    li {
+      font-size: 1rem;
+    }
+
+    ul,
+    ol {
+      margin: 10px 0 0 22px;
+      padding: 0;
+    }
+
+    li + li {
+      margin-top: 8px;
+    }
+
+    code,
+    kbd,
+    pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    code {
+      background: #f3ece0;
+      border: 1px solid #e4d7c1;
+      border-radius: 6px;
+      padding: 0.1em 0.35em;
+      font-size: 0.94em;
+    }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 16px;
+      border-radius: 16px;
+      background: #fbf5ea;
+      color: var(--ink);
+      overflow-x: auto;
+      border: 1px solid #e4d7c1;
+      font-size: 0.93rem;
+    }
+
+    kbd {
+      display: inline-block;
+      padding: 0.14em 0.42em;
+      border-radius: 6px;
+      border: 1px solid #d0c3ae;
+      background: #fff;
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.07);
+      font-size: 0.9em;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .note,
+    .warn,
+    .good {
+      border-radius: 18px;
+      padding: 16px 18px;
+      margin-top: 16px;
+      border: 1px solid;
+    }
+
+    .note {
+      background: var(--soft-accent);
+      border-color: rgba(29, 107, 98, 0.18);
+    }
+
+    .warn {
+      background: var(--soft-warn);
+      border-color: rgba(159, 58, 34, 0.16);
+    }
+
+    .good {
+      background: #e9f6e6;
+      border-color: rgba(54, 128, 62, 0.18);
+    }
+
+    .mini-title {
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 0.95rem;
+      background: var(--panel-2);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      text-align: left;
+      vertical-align: top;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    th {
+      background: #f3ebdd;
+      font-size: 0.88rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .flow {
+      margin-top: 14px;
+      padding: 18px;
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.65), rgba(255,255,255,0.95));
+      border: 1px solid var(--line);
+      overflow-x: auto;
+    }
+
+    .stack {
+      display: grid;
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .stack-box {
+      padding: 16px;
+      border-radius: 18px;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+    }
+
+    .checklist li::marker {
+      color: var(--accent);
+    }
+
+    .footer {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 980px) {
+      .page {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+      }
+
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>EchoSpace-AR Kurulum Rehberi</h1>
+        <p>Unity + Python backend + Quest çalıştırma adımları</p>
+      </div>
+      <nav class="toc">
+        <a href="#hangi-proje">1. Hangi projeyi açacağım?</a>
+        <a href="#gerekenler">2. Gerekenler</a>
+        <a href="#mimari">3. Mimari akış</a>
+        <a href="#python-backend">4. Python backend başlatma</a>
+        <a href="#unity-hub">5. Unity Hub ve proje açma</a>
+        <a href="#sample-scene">6. SampleScene kontrolü</a>
+        <a href="#editor-test">7. Editor içi hızlı test</a>
+        <a href="#quest-test">8. Quest üzerinde çalıştırma</a>
+        <a href="#sifirdan-kurulum">9. Sahneyi sıfırdan kurma</a>
+        <a href="#eslestirme">10. C# ve Python eşleştirme</a>
+        <a href="#sorun-giderme">11. Sorun giderme</a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="eyebrow">Click-by-click Guide</div>
+        <h2>Unity tarafını adım adım ayağa kaldır</h2>
+        <p>
+          Bu rehber, projeyi <strong>Quest için hangi Unity klasöründen açacağını</strong>,
+          <strong>Python backend’i nasıl başlatacağını</strong>,
+          <strong>SampleScene içindeki hangi GameObject’e tıklayıp hangi alanı dolduracağını</strong>
+          ve <strong>Quest üzerinde nasıl test edeceğini</strong> tek tek anlatır.
+        </p>
+        <div class="badges">
+          <span class="badge">Unity sürümü: <strong>6000.2.14f1</strong></span>
+          <span class="badge">Ana Unity proje klasörü: <strong>Quest2_3</strong></span>
+          <span class="badge">Python entrypoint: <strong>current_pipeline.a_pipeline</strong></span>
+          <span class="badge">Ana sahne: <strong>Assets/Scenes/SampleScene.unity</strong></span>
+        </div>
+      </section>
+
+      <section class="card" id="hangi-proje">
+        <h3>1. Hangi Unity projesini açacağım?</h3>
+        <p>
+          Quest akışı için açman gereken klasör:
+          <code>/Users/selmanyilmaz/SU-CS449-549-Final-Project-EchoSpaceAR/Quest2_3</code>
+        </p>
+        <p>
+          Repo içinde iki Unity klasörü var: <code>Android</code> ve <code>Quest2_3</code>.
+          Bu rehber <strong>Quest2_3</strong> içindir. Quest üzerinde çalıştırmak için varsayılan olarak bunu kullan.
+        </p>
+        <div class="warn">
+          <div class="mini-title">Önemli</div>
+          <p>
+            Eğer yanlışlıkla <code>Android</code> klasörünü açarsan yine benzer script’leri görürsün,
+            ama bu rehberdeki obje isimleri ve sahne referansları <strong>Quest2_3</strong> ile birebir eşleşir.
+          </p>
+        </div>
+      </section>
+
+      <section class="card" id="gerekenler">
+        <h3>2. Başlamadan önce gerekenler</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Gereken</th>
+              <th>Bu projedeki durum</th>
+              <th>Senin yapman gereken</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Unity Editor</td>
+              <td>Proje sürümü <code>6000.2.14f1</code></td>
+              <td>Unity Hub içinde bu sürümü kur</td>
+            </tr>
+            <tr>
+              <td>Quest / Android hedefi</td>
+              <td>Project Settings Android ve XR ayarları mevcut</td>
+              <td>Quest’i developer mode ile hazırla</td>
+            </tr>
+            <tr>
+              <td>Python ortamı</td>
+              <td>Repo içinde <code>requirements.txt</code> ya da <code>.venv</code> görünmüyor</td>
+              <td>Daha önce kurduğun çalışan Python ortamını kullan</td>
+            </tr>
+            <tr>
+              <td>Ağ bağlantısı</td>
+              <td>Unity HTTP ile backend’e bağlanıyor</td>
+              <td>Quest ve Mac aynı ağda olmalı</td>
+            </tr>
+            <tr>
+              <td>LLM API anahtarı</td>
+              <td>Opsiyonel</td>
+              <td>İstersen <code>GEMINI_API_KEY</code> veya <code>GOOGLE_API_KEY</code> ekle</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="note">
+          <div class="mini-title">LLM anahtarı yoksa ne olur?</div>
+          <p>
+            Proje yine açılır. Sadece LLM kısmı <code>dry_run</code> moduna düşer.
+            Yani <strong>ikon, temel YAMNet akışı ve backend köprüsü yine test edilebilir</strong>.
+          </p>
+        </div>
+      </section>
+
+      <section class="card" id="mimari">
+        <h3>3. Proje nasıl çalışıyor?</h3>
+        <p>
+          Unity tarafı Python’a tek tek her script ile bağlanmıyor. Tüm köprü tek bir Python giriş noktası üzerinden dönüyor:
+          <code>Python_Pipeline/server/current_pipeline/a_pipeline.py</code>.
+        </p>
+        <div class="flow">
+          <svg viewBox="0 0 1100 280" width="100%" role="img" aria-label="Unity ve Python veri akışı">
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#1d6b62"></path>
+              </marker>
+            </defs>
+            <rect x="20" y="70" width="220" height="130" rx="22" fill="#fffdf8" stroke="#ddd0bb" stroke-width="2"></rect>
+            <text x="130" y="102" text-anchor="middle" font-size="22" font-weight="700" fill="#1c1b17">Quest / Unity</text>
+            <text x="130" y="130" text-anchor="middle" font-size="16" fill="#625b4d">AudioCaptureController</text>
+            <text x="130" y="154" text-anchor="middle" font-size="16" fill="#625b4d">BackendHttpClient</text>
+            <text x="130" y="178" text-anchor="middle" font-size="16" fill="#625b4d">BackendEventRouter</text>
+
+            <line x1="240" y1="135" x2="405" y2="135" stroke="#1d6b62" stroke-width="4" marker-end="url(#arrow)"></line>
+            <text x="323" y="118" text-anchor="middle" font-size="15" fill="#1d6b62">HTTP</text>
+            <text x="323" y="155" text-anchor="middle" font-size="14" fill="#625b4d">/client_hello</text>
+            <text x="323" y="176" text-anchor="middle" font-size="14" fill="#625b4d">/audio_chunk</text>
+            <text x="323" y="197" text-anchor="middle" font-size="14" fill="#625b4d">/events</text>
+
+            <rect x="405" y="30" width="300" height="210" rx="24" fill="#dff0ec" stroke="#9dc9c2" stroke-width="2"></rect>
+            <text x="555" y="66" text-anchor="middle" font-size="22" font-weight="700" fill="#1c1b17">Python Backend</text>
+            <text x="555" y="97" text-anchor="middle" font-size="16" fill="#625b4d">current_pipeline.a_pipeline</text>
+            <text x="555" y="126" text-anchor="middle" font-size="16" fill="#625b4d">YAMNet + Decision</text>
+            <text x="555" y="150" text-anchor="middle" font-size="16" fill="#625b4d">Whisper STT</text>
+            <text x="555" y="174" text-anchor="middle" font-size="16" fill="#625b4d">Gemini LLM (opsiyonel)</text>
+            <text x="555" y="198" text-anchor="middle" font-size="16" fill="#625b4d">Event queue</text>
+
+            <line x1="705" y1="135" x2="865" y2="135" stroke="#d46a30" stroke-width="4" marker-end="url(#arrow)"></line>
+            <text x="785" y="118" text-anchor="middle" font-size="15" fill="#d46a30">Event response</text>
+            <text x="785" y="157" text-anchor="middle" font-size="14" fill="#625b4d">yamnet / stt / llm / important</text>
+
+            <rect x="865" y="70" width="215" height="130" rx="22" fill="#fffdf8" stroke="#ddd0bb" stroke-width="2"></rect>
+            <text x="972" y="102" text-anchor="middle" font-size="22" font-weight="700" fill="#1c1b17">Unity UI</text>
+            <text x="972" y="130" text-anchor="middle" font-size="16" fill="#625b4d">StatusText</text>
+            <text x="972" y="154" text-anchor="middle" font-size="16" fill="#625b4d">SubtitleText</text>
+            <text x="972" y="178" text-anchor="middle" font-size="16" fill="#625b4d">SummaryText + Icon</text>
+          </svg>
+        </div>
+      </section>
+
+      <section class="card" id="python-backend">
+        <h3>4. Python backend nasıl başlatılır?</h3>
+        <h4>4.1. Terminal aç</h4>
+        <ol>
+          <li>Mac’te <kbd>Terminal</kbd> aç.</li>
+          <li>Şu klasöre git:</li>
+        </ol>
+        <pre><code>cd /Users/selmanyilmaz/SU-CS449-549-Final-Project-EchoSpaceAR/Python_Pipeline/server</code></pre>
+
+        <h4>4.2. Eğer bir sanal ortamın varsa onu aktifleştir</h4>
+        <p>
+          Repo içinde hazır bir <code>.venv</code> görünmüyor. Yani burada doğru komut:
+          <strong>önceden hangi Python ortamıyla bu backend’i çalıştırdıysan onu kullan</strong>.
+        </p>
+        <p>
+          Eğer ilk çalıştırmada <code>ModuleNotFoundError</code> alırsan, bu projede şu paketler özellikle gereklidir:
+          <code>sounddevice</code>, <code>tensorflow</code>, <code>tensorflow_hub</code>,
+          <code>faster_whisper</code>, <code>google-genai</code>.
+        </p>
+        <p>İlk kurulum için şu komut güvenli başlangıçtır:</p>
+        <pre><code>python3 -m pip install numpy matplotlib scipy joblib scikit-learn sounddevice tensorflow tensorflow-hub faster-whisper google-genai</code></pre>
+        <p>
+          Eğer <code>sounddevice</code> sonrasında PortAudio benzeri bir hata verirse, macOS'ta ayrıca şunu da kur:
+        </p>
+        <pre><code>brew install portaudio</code></pre>
+        <p>Doğrudan sistem Python ile denemek istersen:</p>
+        <pre><code>python3 -m current_pipeline.a_pipeline</code></pre>
+
+        <div class="warn">
+          <div class="mini-title">Bu makinede gördüğüm gerçek hata</div>
+          <p>
+            Bu rehber yazıldıktan sonra komut test edildi ve ilk düşen hata
+            <code>ModuleNotFoundError: No module named 'sounddevice'</code> oldu.
+            Yani komut formatı doğru, ama Python ortamında bağımlılıklar eksik.
+          </p>
+        </div>
+
+        <h4>4.3. Beklemen gereken çıktı</h4>
+        <ul class="checklist">
+          <li>Terminalde <code>HTTP server at http://0.0.0.0:8000</code> benzeri bir satır görünmeli.</li>
+          <li>Bir matplotlib penceresi açılmalı.</li>
+          <li>Bu pencere kapanırsa backend de durur. Test boyunca açık bırak.</li>
+        </ul>
+
+        <div class="good">
+          <div class="mini-title">Editor testi için en pratik URL</div>
+          <p>
+            Unity’yi aynı Mac üzerinde Play Mode’da test edeceksen
+            <code>http://127.0.0.1:8000</code> kullan.
+          </p>
+        </div>
+
+        <div class="warn">
+          <div class="mini-title">Quest üzerinde çalıştırırken</div>
+          <p>
+            Unity Inspector’daki <code>baseUrl</code> alanına <code>localhost</code> yazma.
+            Quest cihazı Python backend’i kendi içinde değil, <strong>Mac üzerinde</strong> arayacak.
+            Oraya <code>http://&lt;MAC_IP&gt;:8000</code> yazman gerekir.
+          </p>
+        </div>
+
+        <h4>4.4. LLM kullanmak istersen</h4>
+        <p>
+          İstersen <code>/Users/selmanyilmaz/SU-CS449-549-Final-Project-EchoSpaceAR/Python_Pipeline/server/.env</code>
+          dosyası oluşturup şunu ekleyebilirsin:
+        </p>
+        <pre><code>GOOGLE_API_KEY=buraya_anahtarini_yaz</code></pre>
+      </section>
+
+      <section class="card" id="unity-hub">
+        <h3>5. Unity Hub içinde projeyi açma</h3>
+        <ol>
+          <li>Unity Hub’ı aç.</li>
+          <li>Sol menüden <kbd>Projects</kbd> sekmesine gir.</li>
+          <li><kbd>Add</kbd> veya <kbd>Add project from disk</kbd> seç.</li>
+          <li>Şu klasörü seç:
+            <code>/Users/selmanyilmaz/SU-CS449-549-Final-Project-EchoSpaceAR/Quest2_3</code>
+          </li>
+          <li>Unity Hub senden editor seçmeni isterse <strong>6000.2.14f1</strong> seç.</li>
+          <li>Projeyi aç.</li>
+          <li>İlk açılışta paket import’ları tamamlanana kadar bekle.</li>
+        </ol>
+
+        <div class="note">
+          <div class="mini-title">Kullanılan ana paketler</div>
+          <ul>
+            <li><code>com.meta.xr.sdk.core 83.0.1</code></li>
+            <li><code>com.unity.xr.interaction.toolkit 3.2.2</code></li>
+            <li><code>com.unity.xr.openxr 1.16.1</code></li>
+            <li><code>com.unity.render-pipelines.universal 17.2.0</code></li>
+          </ul>
+        </div>
+
+        <h4>5.1. Doğru sahneyi aç</h4>
+        <ol>
+          <li>Unity açıldıktan sonra <kbd>Project</kbd> paneline git.</li>
+          <li><kbd>Assets</kbd> &gt; <kbd>Scenes</kbd> klasörünü aç.</li>
+          <li><kbd>SampleScene.unity</kbd> dosyasına çift tıkla.</li>
+        </ol>
+      </section>
+
+      <section class="card" id="sample-scene">
+        <h3>6. SampleScene içinde neyi nerede kontrol edeceğim?</h3>
+        <p>
+          Hierarchy’de aşağıdaki ana objeleri görmelisin:
+        </p>
+        <div class="stack">
+          <div class="stack-box"><strong>BackendSystem</strong> → BackendHttpClient + AudioCaptureController</div>
+          <div class="stack-box"><strong>UIController</strong> → BackendEventRouter</div>
+          <div class="stack-box"><strong>IconManager</strong> → label → sprite eşlemesi</div>
+          <div class="stack-box"><strong>Canvas</strong> → StatusText, SubtitleText, SummaryText, Yamneticon</div>
+          <div class="stack-box"><strong>MicPermission</strong> → Android/Quest mikrofon izni</div>
+        </div>
+
+        <h4>6.1. BackendSystem objesine tıkla</h4>
+        <ol>
+          <li><kbd>Hierarchy</kbd> panelinde <strong>BackendSystem</strong> objesini seç.</li>
+          <li><kbd>Inspector</kbd> panelinde iki script görmelisin:
+            <code>BackendHttpClient</code> ve <code>AudioCaptureController</code>.
+          </li>
+        </ol>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Component</th>
+              <th>Alan</th>
+              <th>Ne yapacaksın?</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>BackendHttpClient</td>
+              <td><code>Base Url</code></td>
+              <td>
+                Editor testi için <code>http://127.0.0.1:8000</code>, Quest testi için
+                <code>http://&lt;MAC_IP&gt;:8000</code> yaz.
+              </td>
+            </tr>
+            <tr>
+              <td>BackendHttpClient</td>
+              <td><code>Client Hello Path</code></td>
+              <td><code>/client_hello</code> olarak bırak.</td>
+            </tr>
+            <tr>
+              <td>BackendHttpClient</td>
+              <td><code>Audio Chunk Path</code></td>
+              <td><code>/audio_chunk</code> olarak bırak.</td>
+            </tr>
+            <tr>
+              <td>BackendHttpClient</td>
+              <td><code>Events Path</code></td>
+              <td><code>/events</code> olarak bırak.</td>
+            </tr>
+            <tr>
+              <td>BackendHttpClient</td>
+              <td><code>Poll Interval Seconds</code></td>
+              <td><code>0.1</code> veya <code>0.5</code> olabilir. Sahnedeki mevcut değer <code>0.1</code>.</td>
+            </tr>
+            <tr>
+              <td>AudioCaptureController</td>
+              <td><code>Target Sample Rate</code></td>
+              <td><code>16000</code> bırak.</td>
+            </tr>
+            <tr>
+              <td>AudioCaptureController</td>
+              <td><code>Chunk Duration Seconds</code></td>
+              <td>Mevcut sahnede <code>0.1</code>. Şimdilik değiştirme.</td>
+            </tr>
+            <tr>
+              <td>AudioCaptureController</td>
+              <td><code>Preferred Device Keyword</code></td>
+              <td>
+                Harici Rode gibi bir cihaz kullanıyorsan <code>Wireless</code> mantıklı.
+                Quest dahili mikrofonu kullanacaksan boş bırakman daha güvenli olabilir.
+              </td>
+            </tr>
+            <tr>
+              <td>AudioCaptureController</td>
+              <td><code>Pan Mover</code></td>
+              <td><code>Yamneticon</code> objesindeki <code>YamnetIconPanMover2</code> referansı gelmeli.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="warn">
+          <div class="mini-title">Sahnedeki en kritik ayar</div>
+          <p>
+            Şu an SampleScene içinde kayıtlı URL <code>http://172.20.10.10:8000</code>.
+            Bu adres Mac’inin şu anki ağ IP’si değilse <strong>BackendSystem &gt; BackendHttpClient &gt; Base Url</strong>
+            alanını mutlaka güncelle.
+          </p>
+        </div>
+
+        <h4>6.2. UIController objesine tıkla</h4>
+        <ol>
+          <li><kbd>Hierarchy</kbd> içinde <strong>UIController</strong> objesini seç.</li>
+          <li><kbd>Inspector</kbd> içinde <code>BackendEventRouter</code> component’ini aç.</li>
+          <li>Aşağıdaki referanslar dolu olmalı:</li>
+        </ol>
+        <ul>
+          <li><code>Backend</code> → <code>BackendSystem</code> üzerindeki <code>BackendHttpClient</code></li>
+          <li><code>Status Text</code> → <code>StatusText</code></li>
+          <li><code>Subtitle Text</code> → <code>SubtitleText</code></li>
+          <li><code>Summary Text</code> → <code>SummaryText</code></li>
+          <li><code>Yamnet Icon Display</code> → <code>IconManager</code></li>
+        </ul>
+
+        <h4>6.3. IconManager objesine tıkla</h4>
+        <ol>
+          <li><kbd>Hierarchy</kbd> içinde <strong>IconManager</strong> objesini seç.</li>
+          <li><kbd>Inspector</kbd> içinde <code>IconManager</code> component’ini aç.</li>
+        </ol>
+        <p>Şunları kontrol et:</p>
+        <ul>
+          <li><code>Icon Image</code> → <code>Yamneticon</code> objesinin <code>Image</code> component’i</li>
+          <li><code>Label Sprites</code> → speech, sirens, dog, music, door_knock, explosion_gunshot, cat, glass_break gibi eşlemeler dolu</li>
+        </ul>
+
+        <div class="note">
+          <div class="mini-title">Küçük ama önemli bir UI notu</div>
+          <p>
+            Mevcut sahnede <code>IconManager.labelText</code> alanı <code>StatusText</code> objesine bağlı.
+            Bu yüzden ikon label’ı geldiğinde status satırını ezebilir.
+            Daha temiz bir HUD istiyorsan <code>Label Text</code> alanını boş bırak ya da ayrı bir TMP obje bağla.
+          </p>
+        </div>
+
+        <h4>6.4. Canvas objesine tıkla</h4>
+        <ol>
+          <li><kbd>Hierarchy</kbd> içinde <strong>Canvas</strong> objesini seç.</li>
+          <li><kbd>Inspector</kbd> içinde şu ayarları görmelisin:</li>
+        </ol>
+        <ul>
+          <li><code>Render Mode</code> → <strong>World Space</strong></li>
+          <li><code>Event Camera</code> → XR/Main Camera</li>
+          <li><code>Scale</code> → yaklaşık <code>0.002</code></li>
+          <li><code>Local Position</code> → kamera önünde, yaklaşık <code>z = 1.5</code></li>
+        </ul>
+      </section>
+
+      <section class="card" id="editor-test">
+        <h3>7. Unity Editor içinde hızlı smoke test nasıl yapılır?</h3>
+        <p>
+          Bu test, önce ağ ve UI kablolamasının doğru olduğunu anlamak için iyi bir adımdır.
+          Quest build almadan önce bunu yapmanı öneririm.
+        </p>
+        <ol>
+          <li>Önce Python backend’i başlat ve açık bırak.</li>
+          <li>Unity’de <strong>BackendSystem</strong> seç.</li>
+          <li><code>Base Url</code> alanını <code>http://127.0.0.1:8000</code> yap.</li>
+          <li>Scene kaydet.</li>
+          <li>Unity üst bar’dan <kbd>Play</kbd> butonuna bas.</li>
+          <li>Console’u aç: <kbd>Window</kbd> &gt; <kbd>General</kbd> &gt; <kbd>Console</kbd>.</li>
+          <li>Şunları bekle:</li>
+        </ol>
+        <ul class="checklist">
+          <li><code>[BackendHttpClient] client_hello OK</code> benzeri log</li>
+          <li><code>AudioChunk sent</code> logları</li>
+          <li>Status text ya da ikonun güncellenmesi</li>
+        </ul>
+
+        <div class="good">
+          <div class="mini-title">Editor testinde başarılıysan</div>
+          <p>
+            HTTP köprüsü, JSON formatı, event polling ve UI routing büyük olasılıkla doğru çalışıyor demektir.
+            Sonraki adım Quest build almak olur.
+          </p>
+        </div>
+      </section>
+
+      <section class="card" id="quest-test">
+        <h3>8. Quest üzerinde nasıl çalıştıracağım?</h3>
+        <h4>8.1. Quest’i hazırla</h4>
+        <ol>
+          <li>Quest cihazını <strong>Developer Mode</strong> ile aç.</li>
+          <li>USB kablo ile Mac’e bağla.</li>
+          <li>Headset içinde çıkan <strong>Allow USB debugging</strong> sorusunu onayla.</li>
+          <li>Quest ve Mac aynı Wi‑Fi ağına bağlı olsun.</li>
+        </ol>
+
+        <h4>8.2. Base URL’yi değiştir</h4>
+        <ol>
+          <li>Unity’de <strong>BackendSystem</strong> objesine tıkla.</li>
+          <li><code>BackendHttpClient &gt; Base Url</code> alanına
+            <code>http://&lt;MAC_IP&gt;:8000</code> yaz.</li>
+        </ol>
+        <p>
+          Örnek: <code>http://192.168.1.36:8000</code>
+        </p>
+
+        <h4>8.3. Android build al</h4>
+        <ol>
+          <li>Unity menüsünde <kbd>File</kbd> &gt; <kbd>Build Profiles</kbd> aç.
+            Bazı layout’larda bunun adı <kbd>Build Settings</kbd> görünebilir.</li>
+          <li>Platform olarak <strong>Android</strong> seç.</li>
+          <li>Gerekirse <kbd>Switch Platform</kbd> tıkla.</li>
+          <li>Sahneler listesinde <code>Assets/Scenes/SampleScene.unity</code> işaretli kalsın.</li>
+          <li><kbd>Build And Run</kbd> tıkla.</li>
+          <li>İstersen çıktı klasörü olarak repo içinde <code>Builds/Quest</code> adında bir klasör seç.</li>
+        </ol>
+
+        <h4>8.4. Headset üzerinde beklenen davranış</h4>
+        <ul>
+          <li>Uygulama açılır.</li>
+          <li>Mikrofon izni istenirse onay ver.</li>
+          <li>Python terminalinde <code>audio_chunk</code> ve event logları akmaya başlar.</li>
+          <li>Unity tarafında ikon, text ve gerekirse özet alanları güncellenir.</li>
+        </ul>
+      </section>
+
+      <section class="card" id="sifirdan-kurulum">
+        <h3>9. Sahneyi sıfırdan kurmak istersen</h3>
+        <p>
+          Mevcut <code>SampleScene</code> üzerinden gitmek daha kolaydır. Ama bir şeyler bozulursa sahneyi elle tekrar kurman için minimum iskelet aşağıdaki gibidir.
+        </p>
+
+        <h4>9.1. Backend objesi oluştur</h4>
+        <ol>
+          <li><kbd>Hierarchy</kbd> içinde sağ tıkla.</li>
+          <li><kbd>Create Empty</kbd> seç.</li>
+          <li>Adını <strong>BackendSystem</strong> yap.</li>
+          <li>Inspector’da <kbd>Add Component</kbd> tıkla.</li>
+          <li><code>BackendHttpClient</code> ekle.</li>
+          <li>Tekrar <kbd>Add Component</kbd> tıkla.</li>
+          <li><code>AudioCaptureController</code> ekle.</li>
+        </ol>
+
+        <h4>9.2. UI controller objesi oluştur</h4>
+        <ol>
+          <li>Yine <kbd>Create Empty</kbd> ile yeni obje oluştur.</li>
+          <li>Adını <strong>UIController</strong> yap.</li>
+          <li><code>BackendEventRouter</code> component’ini ekle.</li>
+        </ol>
+
+        <h4>9.3. Icon manager objesi oluştur</h4>
+        <ol>
+          <li>Yeni bir empty obje oluştur.</li>
+          <li>Adını <strong>IconManager</strong> yap.</li>
+          <li><code>IconManager</code> component’ini ekle.</li>
+        </ol>
+
+        <h4>9.4. Kamera altına world-space Canvas kur</h4>
+        <ol>
+          <li><kbd>Hierarchy</kbd> içinde kamera objesini bul.</li>
+          <li>Kamera üstünde sağ tıkla &gt; <kbd>UI</kbd> &gt; <kbd>Canvas</kbd>.</li>
+          <li>Canvas seçiliyken Inspector’dan:
+            <ul>
+              <li><code>Render Mode</code> → <strong>World Space</strong></li>
+              <li><code>Event Camera</code> → kamera objesi</li>
+              <li><code>Position Z</code> → yaklaşık <code>1.5</code></li>
+              <li><code>Scale</code> → yaklaşık <code>0.002</code></li>
+            </ul>
+          </li>
+        </ol>
+
+        <h4>9.5. Canvas altına dört UI elemanı ekle</h4>
+        <ol>
+          <li><code>StatusText</code> → TextMeshPro UGUI</li>
+          <li><code>SubtitleText</code> → TextMeshPro UGUI</li>
+          <li><code>SummaryText</code> → TextMeshPro UGUI</li>
+          <li><code>Yamneticon</code> → UI Image</li>
+        </ol>
+
+        <p>Yamneticon için ayrıca:</p>
+        <ul>
+          <li><code>YamnetIconPanMover2</code> component’ini ekle</li>
+          <li><code>Target</code> alanına kendi <code>RectTransform</code>’ini bağla</li>
+        </ul>
+
+        <h4>9.6. Mic izni objesi ekle</h4>
+        <ol>
+          <li>Yeni bir empty obje oluştur.</li>
+          <li>Adını <strong>MicPermission</strong> yap.</li>
+          <li><code>MicPermission</code> component’ini ekle.</li>
+        </ol>
+
+        <h4>9.7. Referans kablolarını bağla</h4>
+        <table>
+          <thead>
+            <tr>
+              <th>Nerede?</th>
+              <th>Alan</th>
+              <th>Neyi sürükleyeceksin?</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>BackendSystem / AudioCaptureController</td>
+              <td><code>Pan Mover</code></td>
+              <td><code>Yamneticon</code> üstündeki <code>YamnetIconPanMover2</code></td>
+            </tr>
+            <tr>
+              <td>UIController / BackendEventRouter</td>
+              <td><code>Backend</code></td>
+              <td><code>BackendSystem</code> üstündeki <code>BackendHttpClient</code></td>
+            </tr>
+            <tr>
+              <td>UIController / BackendEventRouter</td>
+              <td><code>Status Text</code></td>
+              <td><code>StatusText</code></td>
+            </tr>
+            <tr>
+              <td>UIController / BackendEventRouter</td>
+              <td><code>Subtitle Text</code></td>
+              <td><code>SubtitleText</code></td>
+            </tr>
+            <tr>
+              <td>UIController / BackendEventRouter</td>
+              <td><code>Summary Text</code></td>
+              <td><code>SummaryText</code></td>
+            </tr>
+            <tr>
+              <td>UIController / BackendEventRouter</td>
+              <td><code>Yamnet Icon Display</code></td>
+              <td><code>IconManager</code> objesindeki <code>IconManager</code> component’i</td>
+            </tr>
+            <tr>
+              <td>IconManager</td>
+              <td><code>Icon Image</code></td>
+              <td><code>Yamneticon</code> objesinin <code>Image</code> component’i</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card" id="eslestirme">
+        <h3>10. Hangi Python script’i hangi C# tarafına denk geliyor?</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>C# Script</th>
+              <th>Rolü</th>
+              <th>Python tarafı</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>BackendHttpClient.cs</code></td>
+              <td>HTTP istekleri ve event polling</td>
+              <td><code>current_pipeline/a_pipeline.py</code> içindeki <code>/client_hello</code>, <code>/audio_chunk</code>, <code>/events</code></td>
+            </tr>
+            <tr>
+              <td><code>AudioCaptureController.cs</code></td>
+              <td>FMOD ile ses yakalama ve chunk gönderme</td>
+              <td><code>a_pipeline.py</code> içindeki <code>feed_unity_chunk()</code></td>
+            </tr>
+            <tr>
+              <td><code>BackendEventRouter.cs</code></td>
+              <td>Gelen event’leri UI’a dağıtma</td>
+              <td><code>push_yamnet_event()</code>, <code>push_stt_event()</code>, <code>push_llm_event()</code></td>
+            </tr>
+            <tr>
+              <td><code>IconManager.cs</code></td>
+              <td>Label → sprite gösterimi</td>
+              <td>Python’dan gelen <code>dominant_label</code> alanı</td>
+            </tr>
+            <tr>
+              <td><code>YamnetIconPanMover2.cs</code></td>
+              <td>İkonu sağ/sol pan ile kaydırma</td>
+              <td>Python değil; local stereo fark <code>AudioCaptureController</code> içinde hesaplanır</td>
+            </tr>
+            <tr>
+              <td><code>MicPermission.cs</code></td>
+              <td>Android mikrofon izni</td>
+              <td>Python eşleştirmesi yok</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h4>Python iç modüller</h4>
+        <ul>
+          <li><code>b_config.py</code> → genel ayarlar</li>
+          <li><code>c_audio_core.py</code> → ses işleme, YAMNet, stereo özet</li>
+          <li><code>d_decision.py</code> → karar katmanı</li>
+          <li><code>e_transcription.py</code> → faster-whisper STT</li>
+          <li><code>f_llm.py</code> → Gemini özetleme</li>
+        </ul>
+      </section>
+
+      <section class="card" id="sorun-giderme">
+        <h3>11. Sorun giderme</h3>
+
+        <h4>Unity bağlanmıyor</h4>
+        <ul>
+          <li>Python terminalinde gerçekten <code>HTTP server at http://0.0.0.0:8000</code> çıktı mı?</li>
+          <li>Doğru proje açık mı? <strong>Quest2_3</strong> olmalı.</li>
+          <li><code>Base Url</code> doğru IP’yi mi gösteriyor?</li>
+          <li>Quest ve Mac aynı ağda mı?</li>
+          <li>Mac firewall Python bağlantısını engelliyor olabilir.</li>
+        </ul>
+
+        <h4>Editor’de çalışıyor ama Quest’te çalışmıyor</h4>
+        <ul>
+          <li>Editor testinde <code>127.0.0.1</code> kullanıp Quest testinde değiştirmeyi unutmuş olabilirsin.</li>
+          <li>Quest cihazı <code>localhost</code> ile Mac’e ulaşamaz.</li>
+          <li>USB debugging onayı reddedilmiş olabilir.</li>
+        </ul>
+
+        <h4>İkon değişmiyor</h4>
+        <ul>
+          <li><code>BackendEventRouter &gt; Yamnet Icon Display</code> boş olabilir.</li>
+          <li><code>IconManager &gt; Icon Image</code> yanlış objeye bakıyor olabilir.</li>
+          <li>O label için sprite eşlemesi yoksa <code>defaultSprite</code> görünür ya da hiçbir şey görünmez.</li>
+        </ul>
+
+        <h4>LLM özet gelmiyor</h4>
+        <ul>
+          <li>API anahtarı yoksa LLM otomatik <code>dry_run</code> moduna geçer.</li>
+          <li>Temel YAMNet ve STT akışı bundan bağımsız test edilebilir.</li>
+        </ul>
+
+        <h4><code>python3 -m current_pipeline.a_pipeline</code> hiç başlamıyor</h4>
+        <ul>
+          <li>Bu durumda önce bağımlılık kurulum komutunu çalıştır.</li>
+          <li>Bu makinede eksik görülen paketler: <code>sounddevice</code>, <code>tensorflow</code>, <code>tensorflow_hub</code>, <code>faster_whisper</code>, <code>google-genai</code>.</li>
+          <li>Komutun kendisi yanlış değil; genelde sorun Python environment tarafında olur.</li>
+        </ul>
+
+        <h4>Mikrofon hiç çalışmıyor</h4>
+        <ul>
+          <li>Quest içinde mikrofon izni verilmiş mi?</li>
+          <li><code>MicPermission</code> objesi sahnede aktif mi?</li>
+          <li><code>AudioCaptureController &gt; Preferred Device Keyword</code> çok dar olabilir. Gerekirse boş bırak.</li>
+          <li>FMOD cihaz seçimi için Unity Console loglarına bak.</li>
+        </ul>
+
+        <div class="warn">
+          <div class="mini-title">Canlı bridge ile benchmark kabul mantığı aynı şey değil</div>
+          <p>
+            Şu an Unity canlı akışı <code>current_pipeline/a_pipeline.py</code> üzerinden dönüyor.
+            Benchmark tarafında konuştuğumuz yeni karar mantığı ise ayrı bir runtime hattında yaşıyor.
+            Yani Quest demo akışını bugün çalıştırmak için bu rehber doğru,
+            ama benchmark’ta kabul edilen en yeni mantığı birebir Unity’ye taşımak istersen ayrıca entegrasyon yapılması gerekir.
+          </p>
+        </div>
+      </section>
+
+      <section class="card footer">
+        <h3>Rehber özeti</h3>
+        <p>
+          En kısa yol şu:
+          <strong>Python backend’i aç</strong>,
+          <strong>Quest2_3 projesini Unity Hub’dan aç</strong>,
+          <strong>SampleScene içindeki BackendSystem objesinde Base Url’yi doğru IP’ye çevir</strong>,
+          sonra önce Editor testini, ardından Quest build’ini yap.
+        </p>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

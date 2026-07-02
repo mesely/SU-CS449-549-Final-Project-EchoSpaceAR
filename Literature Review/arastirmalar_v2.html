@@ -1,0 +1,2589 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EchoSpace Arastirma Panosu v2</title>
+  <style>
+    :root {
+      --bg: #f5efe7;
+      --bg-deep: #e8ddd0;
+      --paper: rgba(255, 251, 246, 0.92);
+      --paper-strong: rgba(255, 252, 249, 0.97);
+      --line: rgba(63, 44, 26, 0.12);
+      --ink: #2a221a;
+      --muted: #64574a;
+      --blue: #1f5c7a;
+      --blue-soft: rgba(31, 92, 122, 0.11);
+      --teal: #0f766e;
+      --teal-soft: rgba(15, 118, 110, 0.11);
+      --amber: #c27c2c;
+      --amber-soft: rgba(194, 124, 44, 0.12);
+      --rose: #b95656;
+      --rose-soft: rgba(185, 86, 86, 0.11);
+      --shadow: 0 24px 64px rgba(63, 44, 26, 0.14);
+      --shadow-soft: 0 12px 32px rgba(63, 44, 26, 0.08);
+      --radius-xl: 28px;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+      min-width: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(31, 92, 122, 0.16), transparent 28%),
+        radial-gradient(circle at top right, rgba(194, 124, 44, 0.14), transparent 26%),
+        linear-gradient(160deg, var(--bg), var(--bg-deep));
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(63, 44, 26, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(63, 44, 26, 0.03) 1px, transparent 1px);
+      background-size: 28px 28px;
+      mask-image: radial-gradient(circle at center, black 56%, transparent 94%);
+    }
+
+    .shell {
+      width: min(1260px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 28px 0 72px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero,
+    .tabs-shell,
+    .tab-panel,
+    .mini-card,
+    .panel {
+      border: 1px solid var(--line);
+      background: var(--paper);
+      backdrop-filter: blur(18px);
+      box-shadow: var(--shadow-soft);
+      border-radius: var(--radius-xl);
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 26px 28px;
+      box-shadow: var(--shadow);
+      background:
+        radial-gradient(circle at top right, rgba(15, 118, 110, 0.14), transparent 34%),
+        radial-gradient(circle at bottom left, rgba(194, 124, 44, 0.13), transparent 30%),
+        linear-gradient(145deg, rgba(255, 252, 248, 0.96), rgba(242, 233, 223, 0.92));
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -30px;
+      top: -30px;
+      width: 170px;
+      height: 170px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(31, 92, 122, 0.16), transparent 70%);
+      pointer-events: none;
+    }
+
+    .eyebrow,
+    .chip,
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .eyebrow {
+      color: var(--teal);
+      background: var(--teal-soft);
+      border: 1px solid rgba(15, 118, 110, 0.08);
+    }
+
+    .chip {
+      color: var(--blue);
+      background: rgba(31, 92, 122, 0.08);
+      border: 1px solid rgba(31, 92, 122, 0.08);
+    }
+
+    .tag {
+      color: var(--amber);
+      background: var(--amber-soft);
+      border: 1px solid rgba(194, 124, 44, 0.12);
+      padding: 6px 10px;
+      font-size: 0.72rem;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+      margin: 0;
+      line-height: 1.08;
+      font-family: "Iowan Old Style", "Palatino Linotype", serif;
+    }
+
+    h1 {
+      margin-top: 12px;
+      font-size: clamp(2.2rem, 4.7vw, 4.2rem);
+      max-width: 12ch;
+    }
+
+    h2 {
+      font-size: clamp(1.9rem, 2.9vw, 2.8rem);
+    }
+
+    h3 {
+      font-size: 1.3rem;
+    }
+
+    h4 {
+      font-size: 1.02rem;
+    }
+
+    p,
+    li,
+    td,
+    th {
+      overflow-wrap: anywhere;
+    }
+
+    .lead {
+      max-width: 900px;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.68;
+    }
+
+    .hero-grid,
+    .stats-grid,
+    .two-col,
+    .three-grid,
+    .four-grid,
+    .flow-grid,
+    .roadmap,
+    .kpi-grid,
+    .formula-grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .hero-grid {
+      grid-template-columns: 1.2fr 0.95fr;
+      align-items: stretch;
+      margin-top: 20px;
+    }
+
+    .stats-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .two-col {
+      grid-template-columns: 1.05fr 0.95fr;
+      align-items: start;
+    }
+
+    .three-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .four-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .kpi-grid {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      margin-top: 16px;
+    }
+
+    .flow-grid {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      margin-top: 18px;
+      align-items: stretch;
+    }
+
+    .roadmap {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-top: 18px;
+    }
+
+    .formula-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin-top: 18px;
+    }
+
+    .panel,
+    .tab-panel,
+    .mini-card {
+      padding: 24px;
+    }
+
+    .mini-card {
+      border-radius: var(--radius-lg);
+      background: var(--paper-strong);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    }
+
+    .hero-note {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 18px;
+      background: linear-gradient(145deg, rgba(31, 92, 122, 0.11), rgba(255, 252, 249, 0.97));
+    }
+
+    .hero-note ul,
+    .mini-card ul {
+      margin: 12px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.68;
+    }
+
+    .stat-value {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--blue);
+      font-size: 1.9rem;
+      font-family: "Iowan Old Style", "Palatino Linotype", serif;
+    }
+
+    .muted {
+      color: var(--muted);
+      line-height: 1.72;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .section-head p {
+      margin: 0;
+      max-width: 760px;
+      color: var(--muted);
+      line-height: 1.72;
+    }
+
+    .tabs-shell {
+      margin-top: 22px;
+      padding: 8px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: thin;
+      position: sticky;
+      top: 12px;
+      z-index: 3;
+      background: rgba(255, 251, 246, 0.88);
+    }
+
+    .tabs-shell::-webkit-scrollbar {
+      height: 8px;
+    }
+
+    .tab-btn {
+      appearance: none;
+      border: 0;
+      border-radius: 18px;
+      padding: 10px 14px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.9rem;
+      font-weight: 700;
+      white-space: nowrap;
+      flex: 0 0 auto;
+      transition: 180ms ease;
+    }
+
+    .tab-btn:hover {
+      background: rgba(31, 92, 122, 0.08);
+      color: var(--blue);
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(135deg, rgba(31, 92, 122, 0.14), rgba(15, 118, 110, 0.12));
+      color: var(--blue);
+      box-shadow: inset 0 0 0 1px rgba(31, 92, 122, 0.08);
+    }
+
+    .tab-panel {
+      margin-top: 20px;
+      display: none;
+      background:
+        radial-gradient(circle at top left, rgba(31, 92, 122, 0.05), transparent 25%),
+        linear-gradient(180deg, rgba(255, 252, 248, 0.95), rgba(248, 242, 235, 0.92));
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    .stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .stack-item {
+      padding: 16px 18px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: var(--paper-strong);
+    }
+
+    .stack-item strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .callout {
+      padding: 18px 20px;
+      border-radius: 20px;
+      background: linear-gradient(145deg, rgba(15, 118, 110, 0.1), rgba(255, 252, 249, 0.96));
+      border: 1px solid rgba(15, 118, 110, 0.12);
+    }
+
+    .callout strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--teal);
+    }
+
+    .kpi-tile,
+    .flow-card,
+    .road-card,
+    .formula-card {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .kpi-tile strong,
+    .flow-card strong,
+    .formula-card strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--blue);
+    }
+
+    .flow-card {
+      position: relative;
+    }
+
+    .flow-card::after {
+      content: ">";
+      position: absolute;
+      right: -14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: rgba(42, 34, 26, 0.22);
+      font-size: 1.4rem;
+      font-weight: 800;
+    }
+
+    .flow-card:last-child::after {
+      display: none;
+    }
+
+    .road-card .step {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      margin-bottom: 10px;
+      color: var(--paper-strong);
+      background: var(--blue);
+      font-weight: 800;
+    }
+
+    .formula-card code {
+      display: block;
+      margin: 8px 0;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(42, 34, 26, 0.06);
+      color: var(--ink);
+      font-size: 0.95rem;
+      font-family: "SFMono-Regular", "Menlo", monospace;
+    }
+
+    .scatter-wrap {
+      margin-top: 18px;
+      padding: 18px;
+      border-radius: 24px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.68);
+    }
+
+    .chart-note {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.65;
+    }
+
+    svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .table-wrap {
+      margin-top: 18px;
+      overflow-x: auto;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.7);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+    }
+
+    th,
+    td {
+      padding: 14px 16px;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid rgba(63, 44, 26, 0.08);
+      line-height: 1.6;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: rgba(251, 247, 241, 0.96);
+      color: var(--blue);
+      font-weight: 800;
+    }
+
+    tbody tr:nth-child(even) {
+      background: rgba(31, 92, 122, 0.03);
+    }
+
+    .refs-wrap {
+      margin-top: 22px;
+    }
+
+    .refs-wrap details {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.72);
+      overflow: hidden;
+    }
+
+    .refs-wrap summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      font-weight: 800;
+      color: var(--blue);
+      background: linear-gradient(145deg, rgba(31, 92, 122, 0.08), rgba(255, 252, 249, 0.96));
+    }
+
+    .refs-wrap summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .refs-wrap summary::after {
+      content: "+";
+      flex: 0 0 auto;
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: rgba(31, 92, 122, 0.08);
+      font-size: 1.2rem;
+      line-height: 1;
+    }
+
+    .refs-wrap details[open] summary::after {
+      content: "−";
+    }
+
+    .refs-body {
+      padding: 0 22px 22px;
+    }
+
+    .refs-intro {
+      margin: 0 0 14px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .source-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .source-item {
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(63, 44, 26, 0.08);
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .source-item a {
+      color: var(--blue);
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .source-item a:hover {
+      text-decoration: underline;
+    }
+
+    .footer {
+      margin-top: 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    @media (max-width: 1120px) {
+      .hero-grid,
+      .two-col,
+      .stats-grid,
+      .three-grid,
+      .four-grid,
+      .formula-grid,
+      .roadmap {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .flow-grid,
+      .kpi-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 820px) {
+      .shell {
+        width: min(100% - 18px, 100%);
+        padding-top: 18px;
+      }
+
+      .hero,
+      .tab-panel,
+      .mini-card {
+        padding: 20px;
+      }
+
+      .hero-grid,
+      .two-col,
+      .stats-grid,
+      .three-grid,
+      .four-grid,
+      .flow-grid,
+      .roadmap,
+      .kpi-grid,
+      .formula-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .section-head {
+        flex-direction: column;
+        align-items: start;
+      }
+
+      .flow-card::after {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="hero">
+      <span class="eyebrow">EchoSpace Arastirma Panosu v2</span>
+      <h1>Hedef Pipeline ve Iyilestirme Sentezi</h1>
+      <p class="lead">
+        Bu ikinci pano, EchoSpace icin kritik olan dort yeni arastirma eksenini tek yerde toplar:
+        MediaPipe'in gorsel sinirlarini sesle asan cok modlu hedef yakalama, SoundSpaces tabanli sim2real
+        akustik adaptasyon, mobil cihazlar icin cascading audio-visual verimlilik ve Microsoft Soundscape
+        tarzinda konusma onceligi filtreleri. Son iki sekme ise bunlari PANNs tabanli ses omurgasi ve final
+        hedef pipeline ile birlestirir. Bu surumde ayrica deploy-first bir baseline ile paper-first bir amiral
+        modelin farki acikca cizildi.
+      </p>
+
+      <div class="hero-grid">
+        <div class="stats-grid">
+          <div class="mini-card">
+            <span class="stat-value">Ana tema</span>
+            <p class="muted">
+              Sorun artik yalnizca sesi siniflandirmak degil; sesi yon, baglam, gorsel kilitlenme ve mobil verimlilik
+              icin ortak bir karar motoruna cevirmek.
+            </p>
+          </div>
+          <div class="mini-card">
+            <span class="stat-value">Hedef sonuc</span>
+            <p class="muted">
+              Kamera disi hedefe hizli kilitlenme, tartisma odasinda daha dusuk acisal hata, gürültüde daha yuksek
+              konusma acikligi ve edge cihazda akillica dagitilmis hesaplama.
+            </p>
+          </div>
+          <div class="mini-card">
+            <span class="stat-value">Yayin hedefi</span>
+            <p class="muted">
+              Sadece calisan bir demo degil; PANNs teacher omurgasi, Soundscape-ilhamli sosyal ses mantigi ve
+              sim2real akustik adaptasyonla "paper yazdiracak" amiral modeli hedeflemek.
+            </p>
+          </div>
+          <div class="mini-card">
+            <span class="stat-value">Pratik anlam</span>
+            <p class="muted">
+              EchoSpace; ses siniflandirma, DOA, VAD, MediaPipe ve HUD state machine'i ayni boru hattinda
+              birlestiren bir "cok-duyulu farkindalik motoru"na evriliyor.
+            </p>
+          </div>
+        </div>
+
+        <div class="mini-card hero-note">
+          <div>
+            <span class="chip">Bu surumde ne var</span>
+            <ul>
+              <li>4 yeni arastirma ekseni icin soru, cevap, grafik ve ozet tablolar</li>
+              <li>PANNs ve temel ses model omurgasi icin dogrudan uygulama yorumu</li>
+              <li>Hedef pipeline ve hedef iyilestirme tablosu</li>
+              <li>Acilir kaynakca desenleri ve tek sayfada review-makalesi akisi</li>
+            </ul>
+          </div>
+          <div class="callout">
+            <strong>Okuma notu</strong>
+            Grafikler ve dereceler, kullanici tarafindan verilen arastirma metinleri ile primer kaynak ailelerinin
+            sentezlenmis, karar vermeye yardimci versiyonudur; tek bir benchmark tablosunun kopyasi degildir.
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="tabs-shell" role="tablist" aria-label="Arastirma sekmeleri">
+      <button class="tab-btn active" data-tab="tab-avtrack" role="tab" aria-selected="true">Sekme 1: MediaPipe + Sesle Hedef Yakalama</button>
+      <button class="tab-btn" data-tab="tab-sim2real" role="tab" aria-selected="false">Sekme 2: SoundSpaces Sim2Real</button>
+      <button class="tab-btn" data-tab="tab-cascade" role="tab" aria-selected="false">Sekme 3: Cascading AV Verimlilik</button>
+      <button class="tab-btn" data-tab="tab-priority" role="tab" aria-selected="false">Sekme 4: Conversation Priority</button>
+      <button class="tab-btn" data-tab="tab-panns" role="tab" aria-selected="false">Sekme 5: PANNs ve Temel Model Omurgasi</button>
+      <button class="tab-btn" data-tab="tab-pipeline" role="tab" aria-selected="false">Sekme 6: Hedef Pipeline ve Iyilestirme</button>
+    </div>
+
+    <section id="tab-avtrack" class="tab-panel active" role="tabpanel">
+      <div class="section-head">
+        <div>
+          <span class="chip">Cok modlu izleme</span>
+          <h2>MediaPipe'in Gorsel Sinirlarini Sesle Asmak</h2>
+        </div>
+        <p>
+          Salt gorsel MediaPipe izleme, dusuk isikta ve gorus alani disinda yapisal olarak kör kalir. Bu sekme,
+          mikrofon dizisi ve DOA tabanli bir isitsel katman eklenerek PTZ veya sanal kamera hedeflemesinin nasil
+          tahmine dayali hale getirilecegini tartisir.
+        </p>
+      </div>
+
+      <div class="callout" style="margin-top: 16px;">
+        <strong>Arastirma Sorusu</strong>
+        MediaPipe gibi gorsel odakli izleme sistemleri dusuk isikta ve gorus alani disinda hedefi kaybettiginde,
+        ses verisi kullanilarak hedefin yeri tahmin edilip kamera ya da gorsel ROI yeniden hizli bicimde
+        kilitlenebilir mi?
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-tile">
+          <strong>Gorsel darboğaz</strong>
+          <p class="muted">Dusuk isik, motion blur ve oklüzyon MediaPipe landmark guvenini hizla dusurur.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Isitsel avantaj</strong>
+          <p class="muted">Ses, gorus alani disinda da vardir; DOA ile 360 derece yon bilgisi korunur.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Ana mekanizma</strong>
+          <p class="muted">GCC-PHAT veya neural DOA haritasi ile PTZ ya da ROI kamerayi hedefe ceker.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Beklenen kazanc</strong>
+          <p class="muted">Blind sweep yerine tahmine dayali lock-on ile kamera disi hedef yakalama suresi ciddi azalir.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Risk</strong>
+          <p class="muted">Sessiz hedef veya ayni anda birden cok aktif kaynak durumunda sadece audio kararsizlasabilir.</p>
+        </div>
+      </div>
+
+      <div class="flow-grid">
+        <div class="flow-card">
+          <strong>1. Mikrofon dizisi</strong>
+          <p class="muted">TDOA / DOA hesaplanir; hedef sesin azimut ve elevasyon ipucu bulunur.</p>
+        </div>
+        <div class="flow-card">
+          <strong>2. Isitsel olasilik haritasi</strong>
+          <p class="muted">Sesin en olasi yonu bir soundscape haritasi uzerinde tutulur.</p>
+        </div>
+        <div class="flow-card">
+          <strong>3. PTZ veya ROI yonlendirme</strong>
+          <p class="muted">Kamera dogrudan o yone dondurulur; gorsel arama uzayi daraltilir.</p>
+        </div>
+        <div class="flow-card">
+          <strong>4. MediaPipe lock-on</strong>
+          <p class="muted">Yuz, el, pose veya aktif konusmaci hedefi gorsel olarak yeniden yakalar.</p>
+        </div>
+        <div class="flow-card">
+          <strong>5. Olasilik filtresi</strong>
+          <p class="muted">Audio-visual particle filter yörüngeyi gorus disina ciktiginda da tahmin etmeye devam eder.</p>
+        </div>
+      </div>
+
+      <div class="scatter-wrap">
+        <svg viewBox="0 0 920 380" aria-label="Audio-guided tracking">
+          <rect x="60" y="80" width="180" height="90" rx="22" fill="rgba(31,92,122,0.12)" stroke="rgba(31,92,122,0.22)"/>
+          <text x="150" y="116" text-anchor="middle" fill="#1f5c7a" font-size="18" font-weight="700">Mikrofon Dizisi</text>
+          <text x="150" y="138" text-anchor="middle" fill="#64574a" font-size="13">GCC-PHAT / DOA</text>
+          <rect x="290" y="62" width="180" height="90" rx="22" fill="rgba(15,118,110,0.12)" stroke="rgba(15,118,110,0.22)"/>
+          <text x="380" y="98" text-anchor="middle" fill="#0f766e" font-size="18" font-weight="700">Isitsel Harita</text>
+          <text x="380" y="120" text-anchor="middle" fill="#64574a" font-size="13">Azimut / elevasyon olasiligi</text>
+          <rect x="290" y="188" width="180" height="90" rx="22" fill="rgba(194,124,44,0.12)" stroke="rgba(194,124,44,0.22)"/>
+          <text x="380" y="224" text-anchor="middle" fill="#8c5b2a" font-size="18" font-weight="700">Particle Filter</text>
+          <text x="380" y="246" text-anchor="middle" fill="#64574a" font-size="13">Gorus disinda tahmin</text>
+          <rect x="520" y="80" width="160" height="90" rx="22" fill="rgba(47,95,150,0.12)" stroke="rgba(47,95,150,0.22)"/>
+          <text x="600" y="116" text-anchor="middle" fill="#2f5f96" font-size="18" font-weight="700">PTZ / ROI</text>
+          <text x="600" y="138" text-anchor="middle" fill="#64574a" font-size="13">Kamerayi hedefe cek</text>
+          <rect x="730" y="80" width="130" height="90" rx="22" fill="rgba(185,86,86,0.12)" stroke="rgba(185,86,86,0.22)"/>
+          <text x="795" y="116" text-anchor="middle" fill="#b95656" font-size="18" font-weight="700">MediaPipe</text>
+          <text x="795" y="138" text-anchor="middle" fill="#64574a" font-size="13">Lock-on</text>
+          <line x1="240" y1="125" x2="290" y2="107" stroke="rgba(42,34,26,0.28)" stroke-width="3"/>
+          <line x1="240" y1="125" x2="290" y2="233" stroke="rgba(42,34,26,0.28)" stroke-width="3"/>
+          <line x1="470" y1="107" x2="520" y2="125" stroke="rgba(42,34,26,0.28)" stroke-width="3"/>
+          <line x1="680" y1="125" x2="730" y2="125" stroke="rgba(42,34,26,0.28)" stroke-width="3"/>
+          <text x="350" y="320" fill="#64574a" font-size="14">Audio, kameranin goremedigi anda dahi hedefin nerede olabilecegini tutar.</text>
+        </svg>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Asama</th>
+              <th>Tipik rol</th>
+              <th>Beklenen sure</th>
+              <th>Karar yorumu</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>DOA hesabi</strong></td>
+              <td>Mikrofondan yon kestirimi</td>
+              <td>~50-100 ms</td>
+              <td>Akustik erken uyari katmani.</td>
+            </tr>
+            <tr>
+              <td><strong>Komut aktarimi</strong></td>
+              <td>PTZ veya sanal ROI yönlendirme</td>
+              <td>~10-20 ms</td>
+              <td>Ag tarafinda dusuk gecikmeli olabilir.</td>
+            </tr>
+            <tr>
+              <td><strong>Mekanik donus</strong></td>
+              <td>Kameranin fiziksel hizalanmasi</td>
+              <td>~900 ms (90 derece ornegi)</td>
+              <td>Toplam lock-on gecikmesinin ana parcasi burada olabilir.</td>
+            </tr>
+            <tr>
+              <td><strong>MediaPipe cikarimi</strong></td>
+              <td>Hedefi gorsel olarak yakalama</td>
+              <td>~15-30 ms</td>
+              <td>Gorsel ROI daraldiysa hizli ve stabil calisir.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section-head" style="margin-top: 24px;">
+        <div>
+          <span class="chip">Hizli tablo</span>
+          <h2>Yaklasimlarin Ozet Karsilastirmasi</h2>
+        </div>
+        <p>Bu sekmede gorsel-only ve audio-guided takip alternatifleri tek bakista ozetlenir.</p>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Yaklasim</th>
+              <th>Guclu yani</th>
+              <th>Zayif yani</th>
+              <th>Siniflandirma etkisi</th>
+              <th>Yon tahmini</th>
+              <th>Uygulama maliyeti</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Visual-only MediaPipe</strong></td>
+              <td>Hizli landmark ve takip</td>
+              <td>FoV disinda ve dusuk isikta kirilir</td>
+              <td>Gorulen hedefte iyi</td>
+              <td>Kamera ici ile sinirli</td>
+              <td>Dusuk</td>
+            </tr>
+            <tr>
+              <td><strong>DOA destekli PTZ</strong></td>
+              <td>Kamera disi hedefe hizli yonelir</td>
+              <td>Sessiz hedefte zayif</td>
+              <td>Dolayli olarak gorsel kilitlenmeyi iyilestirir</td>
+              <td>Yuksek</td>
+              <td>Orta</td>
+            </tr>
+            <tr>
+              <td><strong>Audio-visual particle filter</strong></td>
+              <td>Yorungeyi gorus disinda da surdurur</td>
+              <td>Coklu kaynakta ayar ister</td>
+              <td>Takip surekliligini guclendirir</td>
+              <td>Yuksek</td>
+              <td>Orta-Yuksek</td>
+            </tr>
+            <tr>
+              <td><strong>DOA + MediaPipe + PTZ</strong></td>
+              <td>Lock-on suresini ciddi kisaltir</td>
+              <td>Kalibrasyon ister</td>
+              <td>En pratik hedef yakalama paketi</td>
+              <td>Yuksek</td>
+              <td>Yuksek</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="refs-wrap">
+        <details>
+          <summary>Makale detaylarini ve kaynakcayi gor</summary>
+          <div class="refs-body">
+            <p class="refs-intro">Bu sekmenin ana kaynaklari, gorsel izleme ile isitsel lokalizasyonu birlestiren literatur ve resmi platform referanslaridir.</p>
+            <div class="source-list">
+              <div class="source-item">
+                <a href="https://developers.google.com/mediapipe" target="_blank" rel="noreferrer">Google MediaPipe</a>
+                <div class="muted">Gorsel landmark ve nesne takip tarafinin resmi platformu.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://arxiv.org/abs/1807.00129" target="_blank" rel="noreferrer">CRNN tabanli SELD</a>
+                <div class="muted">Ses + yon birlikte modelleme tarafinda klasik referanslardan biri.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://dcase.community/challenge2021/task-sound-event-localization-and-detection" target="_blank" rel="noreferrer">DCASE SELD Task</a>
+                <div class="muted">Konumlandirma ve olay tespitini birlikte olcmek icin resmi benchmark girisi.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://en.wikipedia.org/wiki/GCC-PHAT" target="_blank" rel="noreferrer">GCC-PHAT</a>
+                <div class="muted">TDOA / DOA tarafinda genis kullanilan klasik faz-donusumlu korelasyon fikri.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://pubmed.ncbi.nlm.nih.gov/26736537/" target="_blank" rel="noreferrer">Audio-Visual Particle Filter Literature</a>
+                <div class="muted">Cok modlu hedef takibinde olasiliksal filtre mantigina giris icin ilgili aile.</div>
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <div class="footer">Bu sekme, MediaPipe'i yalnizca goren degil, sesi de duyan bir hedef yakalama sistemi gibi dusunmenin neden kritik oldugunu kuruyor.</div>
+    </section>
+
+    <section id="tab-sim2real" class="tab-panel" role="tabpanel">
+      <div class="section-head">
+        <div>
+          <span class="chip">Akustik sim2real</span>
+          <h2>SoundSpaces Simulasyonlarini Gercek Tartisma Odasina Tasimak</h2>
+        </div>
+        <p>
+          Bu sekme, Meta SoundSpaces benzeri simule akustik sahnelerde egitilen modellerin, kendi kaydedilen gercek
+          RIR verileriyle fine-tune edilerek "in-the-wild" tartisma ortamlarina nasil uyarlanacagini inceler.
+        </p>
+      </div>
+
+      <div class="callout" style="margin-top: 16px;">
+        <strong>Arastirma Sorusu</strong>
+        SoundSpaces uzerinde on-egitilmis akustik lokalizasyon modelleri, gercek tartisma odasindan kaydedilen RIR
+        verileriyle fine-tune edildiginde ses kaynagi konumlandirma hatasi tek konusmaci kosullarinda 5 derecenin
+        altina indirilebilir mi; coklu ve cakisan konusmacilarda bu sinir nereye kadar zorlanabilir?
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-tile">
+          <strong>Temel problem</strong>
+          <p class="muted">Simulasyondaki akustik geometri ile gercek oda arasinda domain shift vardir.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Veri araci</strong>
+          <p class="muted">Farina ESS / RIR yakalama, hedef odanin gercek akustik parmak izini verir.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Tek konusmaci sonucu</strong>
+          <p class="muted">Literatur cizgisi 2-4 derece bandina inilebildigini gosteriyor.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Coklu konusmaci sorunu</strong>
+          <p class="muted">Overlap ve spatial masking hatayi belirgin artirir; 13 derece bariyeri kolay kirilmaz.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Yorum</strong>
+          <p class="muted">5 derece hedefi tekil kaynakta mantikli; overlap icin audio-visual destek gerekir.</p>
+        </div>
+      </div>
+
+      <div class="flow-grid">
+        <div class="flow-card">
+          <strong>1. SoundSpaces on-egitim</strong>
+          <p class="muted">Genel akustik geometri ve yansıma mantigi sentetik sahnelerde ogrenilir.</p>
+        </div>
+        <div class="flow-card">
+          <strong>2. Gercek RIR toplama</strong>
+          <p class="muted">Tartisma odasinda ESS ile impulse response kutuphanesi kurulur.</p>
+        </div>
+        <div class="flow-card">
+          <strong>3. Yari sentetik veri</strong>
+          <p class="muted">Temiz konusma sinyalleri bu RIR'lerle konvolüsyonlanir.</p>
+        </div>
+        <div class="flow-card">
+          <strong>4. Fine-tuning</strong>
+          <p class="muted">Model, hedef odanin RT60, yansi ve frekans yapisina adapte edilir.</p>
+        </div>
+        <div class="flow-card">
+          <strong>5. Real-world benchmark</strong>
+          <p class="muted">Acisal hata ve overlap performansi gercek mikrofon kurulumunda olculur.</p>
+        </div>
+      </div>
+
+      <div class="formula-grid">
+        <div class="formula-card">
+          <strong>Akustik konvolüsyon</strong>
+          <code>y(t) = x(t) * h(t)</code>
+          <p class="muted">Temiz kaynak sinyali, oda impuls yaniti ile katlanarak yankili gercek sinyale donusur.</p>
+        </div>
+        <div class="formula-card">
+          <strong>Acil hata</strong>
+          <code>MAE = mean(|theta_hat - theta_true|)</code>
+          <p class="muted">DoA tahmini ile gercek yon arasindaki ortalama mutlak fark temel metriktir.</p>
+        </div>
+        <div class="formula-card">
+          <strong>Sim2Real amaci</strong>
+          <code>min L_real(theta) after pretrain(theta_sim)</code>
+          <p class="muted">Simulasyonda ogrenilen temsil, gercek oda verisiyle dusuk maliyetli uyarlanir.</p>
+        </div>
+      </div>
+
+      <div class="scatter-wrap">
+        <svg viewBox="0 0 920 380" aria-label="Sim2Real error landscape">
+          <rect x="90" y="50" width="730" height="260" rx="24" fill="rgba(255,255,255,0.74)" stroke="rgba(63,44,26,0.12)"/>
+          <line x1="90" y1="310" x2="820" y2="310" stroke="rgba(63,44,26,0.16)" />
+          <line x1="90" y1="50" x2="90" y2="310" stroke="rgba(63,44,26,0.16)" />
+          <text x="335" y="346" fill="#64574a" font-size="15">Modelin dunya bilgisi ve adaptasyon derinligi</text>
+          <text x="24" y="206" transform="rotate(-90 24 206)" fill="#64574a" font-size="15">Acisal hata (dusuk daha iyi)</text>
+          <circle cx="170" cy="228" r="14" fill="#b95656" />
+          <text x="198" y="234" fill="#2a221a" font-size="15" font-weight="700">Pure simulation</text>
+          <circle cx="360" cy="176" r="14" fill="#c27c2c" />
+          <text x="388" y="182" fill="#2a221a" font-size="15" font-weight="700">Sim + sparse real fine-tune</text>
+          <circle cx="560" cy="134" r="14" fill="#0f766e" />
+          <text x="588" y="140" fill="#2a221a" font-size="15" font-weight="700">Single-source target zone</text>
+          <circle cx="700" cy="210" r="14" fill="#1f5c7a" />
+          <text x="728" y="216" fill="#2a221a" font-size="15" font-weight="700">Overlap barrier</text>
+          <line x1="90" y1="136" x2="820" y2="136" stroke="rgba(15,118,110,0.18)" stroke-dasharray="8 8"/>
+          <text x="100" y="126" fill="#0f766e" font-size="13">5 derece hedef cizgisi</text>
+        </svg>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Senaryo</th>
+              <th>Beklenen acisal hata yorumu</th>
+              <th>Hedefe gore durum</th>
+              <th>Ne lazim?</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Tek konusmaci / single source</strong></td>
+              <td>2-4 derece bandi literaturle tutarli gorunuyor</td>
+              <td>5 derece hedefi gecilebilir</td>
+              <td>Gercek RIR fine-tune ve temiz benchmark</td>
+            </tr>
+            <tr>
+              <td><strong>Yankili oda ama tek aktif kaynak</strong></td>
+              <td>Fine-tune ile belirgin iyilesme beklenir</td>
+              <td>Hala makul</td>
+              <td>RIR kapsami ve frekans adaptasyonu</td>
+            </tr>
+            <tr>
+              <td><strong>Overlap / coklu tartisma kaynagi</strong></td>
+              <td>13 derece civari bariyer literaturde sik goruluyor</td>
+              <td>Salt audio ile 5 derece zor</td>
+              <td>RGB-D veya visual grounding entegrasyonu</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section-head" style="margin-top: 24px;">
+        <div>
+          <span class="chip">Hizli tablo</span>
+          <h2>Yaklasimlarin Ozet Karsilastirmasi</h2>
+        </div>
+        <p>Simulasyondan gercek dunyaya gecerken hangi katmanin ne kazandirdigini bu tablo hizli gosterir.</p>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Yaklasim</th>
+              <th>Guclu yani</th>
+              <th>Zayif yani</th>
+              <th>Siniflandirma etkisi</th>
+              <th>Yon tahmini</th>
+              <th>Uygulama maliyeti</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Pure SoundSpaces</strong></td>
+              <td>Bol sentetik veri ve hizli on-egitim</td>
+              <td>Domain shift yuksek</td>
+              <td>Temsil ogrenimini baslatir</td>
+              <td>Gercekte kolay kirilir</td>
+              <td>Dusuk-Orta</td>
+            </tr>
+            <tr>
+              <td><strong>Sim + gercek RIR fine-tune</strong></td>
+              <td>Hedef odanin akustigine uyum saglar</td>
+              <td>Veri toplama ister</td>
+              <td>Gercek dunya genellemesini artirir</td>
+              <td>Tekli kaynakta guclu</td>
+              <td>Orta</td>
+            </tr>
+            <tr>
+              <td><strong>Single-source audio localization</strong></td>
+              <td>5 derece alti hedef gercekci</td>
+              <td>Overlap yok varsayimi</td>
+              <td>Konusmaci bazli takipte yeterli</td>
+              <td>Yuksek</td>
+              <td>Orta</td>
+            </tr>
+            <tr>
+              <td><strong>Audio-visual sim2real</strong></td>
+              <td>Overlap bariyerini kirma sansi verir</td>
+              <td>Cok modlu kalibrasyon ister</td>
+              <td>Daha saglam saha davranisi</td>
+              <td>En yuksek potansiyel</td>
+              <td>Yuksek</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="refs-wrap">
+        <details>
+          <summary>Makale detaylarini ve kaynakcayi gor</summary>
+          <div class="refs-body">
+            <p class="refs-intro">Bu sekmede simule akustik alanlar, gercek RIR toplama ve sim2real uyarlama mantigini tasiyan temel kaynaklar listelendi.</p>
+            <div class="source-list">
+              <div class="source-item">
+                <a href="https://openaccess.thecvf.com/content_CVPR_2020/html/Chen_SoundSpaces_Audio-Visual_Navigation_in_3D_Environments_CVPR_2020_paper.html" target="_blank" rel="noreferrer">SoundSpaces 1.0</a>
+                <div class="muted">Audio-visual embodied AI icin akustik simulasyon baslangic noktasi.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://arxiv.org/abs/2206.08312" target="_blank" rel="noreferrer">SoundSpaces 2.0</a>
+                <div class="muted">Surekli geometri tabanli ses render mantigi icin ana kaynak ailesi.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://arxiv.org/abs/2403.00918" target="_blank" rel="noreferrer">Real Acoustic Fields (RAF)</a>
+                <div class="muted">Gercek dunya RIR benchmark ve sim2real akustik temsil icin onemli baglam.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://www.researchgate.net/publication/2456363_Simultaneous_Measurement_of_Impulse_Response_and_Distortion_With_a_Swept-Sine_Technique" target="_blank" rel="noreferrer">Farina ESS Method</a>
+                <div class="muted">Gercek oda impuls yaniti toplamada klasik referanslardan biri.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://arxiv.org/abs/2402.03242" target="_blank" rel="noreferrer">JAEGER</a>
+                <div class="muted">Neural IV ve audio-visual grounding ile acisal hata analizi icin ilgili aile.</div>
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <div class="footer">Bu sekme, SoundSpaces'i "simule ettik" seviyesinden "gercek tartisma odasina adapte ettik" seviyesine nasil tasiyacagimizi sabitliyor.</div>
+    </section>
+
+    <section id="tab-cascade" class="tab-panel" role="tabpanel">
+      <div class="section-head">
+        <div>
+          <span class="chip">Mobil AV verimlilik</span>
+          <h2>Cascading Logic ile Zamanlanmis Verimlilik</h2>
+        </div>
+        <p>
+          AV-HuBERT ve benzeri modeller gürültüde cok gucludur; ama her karede tam gorsel kolu acmak mobil tarafta
+          termal ve pil acisindan sürdürülemez olabilir. Bu sekme, gorsel kolu sadece gerektiginde acan cascading
+          mimarileri tartisir.
+        </p>
+      </div>
+
+      <div class="callout" style="margin-top: 16px;">
+        <strong>Arastirma Sorusu</strong>
+        Audio-visual fusion modelleri mobil platformlarda F1 skorundan belirgin odun vermeden nasil olceklendirilebilir;
+        gorsel kolu sadece SNR dustugunde veya belirsizlik arttiginda acan cascading mantik toplam maliyeti ne kadar
+        dusurebilir?
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-tile">
+          <strong>Asil darboğaz</strong>
+          <p class="muted">AV-HuBERT benzeri modellerin Transformer + visual encoder maliyeti cok yuksektir.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Cascade fikri</strong>
+          <p class="muted">Temiz audio varsa vision kapali kalsin; gürültü veya belirsizlikte vision devreye girsin.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Beklenen kazanc</strong>
+          <p class="muted">Toplam hesaplama maliyetinde %40-60 bandi tasarruf mantiklidir.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Risk</strong>
+          <p class="muted">Gec acilan vision kolu ani gürültü patlamalarinda gecikme yaratabilir.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Yorum</strong>
+          <p class="muted">Asil hedef, her an en guclu modeli calistirmak degil; dogru anda dogru modaliteyi uyandirmaktir.</p>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h3>Iki asamali mantik</h3>
+          <p class="muted">
+            Stage 1, hafif bir audio tarayici gibi davranir ve SNR / confidence / no-speech durumunu olcer.
+            Stage 2, yalnizca gerekli oldugunda gorsel encoder ve agir multimodal katmanlari acar.
+          </p>
+        </div>
+        <div class="mini-card">
+          <h3>MoE ve sparse routing</h3>
+          <p class="muted">
+            MoHAVE gibi seyrek uzmanlar yaklasimi, toplam parametre buyuk kalsa bile her adimda sadece ilgili uzmanlari
+            calistirarak mobil tarafta daha mantikli bir aktivasyon butcesi yaratir.
+          </p>
+        </div>
+      </div>
+
+      <div class="scatter-wrap">
+        <svg viewBox="0 0 920 400" aria-label="Cascading efficiency">
+          <rect x="90" y="50" width="730" height="270" rx="24" fill="rgba(255,255,255,0.74)" stroke="rgba(63,44,26,0.12)"/>
+          <line x1="90" y1="320" x2="820" y2="320" stroke="rgba(63,44,26,0.16)" />
+          <line x1="90" y1="50" x2="90" y2="320" stroke="rgba(63,44,26,0.16)" />
+          <text x="330" y="356" fill="#64574a" font-size="15">Hesaplama ve termal butce</text>
+          <text x="22" y="212" transform="rotate(-90 22 212)" fill="#64574a" font-size="15">Gürültüde bagil performans</text>
+          <circle cx="170" cy="170" r="14" fill="#1f5c7a" />
+          <text x="198" y="176" fill="#2a221a" font-size="15" font-weight="700">Audio-only small</text>
+          <circle cx="330" cy="132" r="14" fill="#0f766e" />
+          <text x="358" y="138" fill="#2a221a" font-size="15" font-weight="700">Cascading AV</text>
+          <circle cx="540" cy="96" r="14" fill="#c27c2c" />
+          <text x="568" y="102" fill="#2a221a" font-size="15" font-weight="700">MoHAVE sparse experts</text>
+          <circle cx="730" cy="84" r="14" fill="#b95656" />
+          <text x="758" y="90" fill="#2a221a" font-size="15" font-weight="700">AV-HuBERT large always-on</text>
+          <text x="106" y="294" fill="#64574a" font-size="13">Dusuk butce</text>
+          <text x="730" y="294" fill="#64574a" font-size="13">Yuksek butce</text>
+        </svg>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>SNR bandi</th>
+              <th>En mantikli mod</th>
+              <th>Neden?</th>
+              <th>Mobil yorum</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Yuksek SNR</strong></td>
+              <td>Audio-only</td>
+              <td>Gorsel fayda marjinal; hesaplama gereksiz</td>
+              <td>Vision kolu uyutulur.</td>
+            </tr>
+            <tr>
+              <td><strong>Orta SNR</strong></td>
+              <td>Cascading AV</td>
+              <td>Gorsel modalite belirgin fayda uretir</td>
+              <td>Belirsizlik artinca vision acilir.</td>
+            </tr>
+            <tr>
+              <td><strong>Cok dusuk SNR</strong></td>
+              <td>AV veya VSR agirlikli mod</td>
+              <td>Dudak / visual cue ana bilgi kaynagına donusebilir</td>
+              <td>Pil butcesi pahasina vision agirligi artar.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section-head" style="margin-top: 24px;">
+        <div>
+          <span class="chip">Hizli tablo</span>
+          <h2>Yaklasimlarin Ozet Karsilastirmasi</h2>
+        </div>
+        <p>AV sistemleri mobil tarafta ancak hesaplama zamanini baglama gore dagitinca ölçeklenebilir.</p>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Yaklasim</th>
+              <th>Guclu yani</th>
+              <th>Zayif yani</th>
+              <th>Siniflandirma etkisi</th>
+              <th>Yon tahmini</th>
+              <th>Uygulama maliyeti</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Always-on AV-HuBERT</strong></td>
+              <td>Gürültüde en yuksek tavanlardan biri</td>
+              <td>Agir, termal olarak pahali</td>
+              <td>ASR / AVSR kalitesi yuksek</td>
+              <td>Dogrudan degil</td>
+              <td>Cok yuksek</td>
+            </tr>
+            <tr>
+              <td><strong>Audio-first cascade</strong></td>
+              <td>Hesaplama zamanini akilli dagitir</td>
+              <td>Mod degisimi gecikmesi yaratabilir</td>
+              <td>Genel F1 / WER dengesini iyi tutar</td>
+              <td>Yok</td>
+              <td>Orta</td>
+            </tr>
+            <tr>
+              <td><strong>MoE / sparse AV</strong></td>
+              <td>Kapasite buyuk kalirken aktivasyon azalir</td>
+              <td>Mimari karmasik</td>
+              <td>Gurultude yuksek potansiyel</td>
+              <td>Yok</td>
+              <td>Orta-Yuksek</td>
+            </tr>
+            <tr>
+              <td><strong>Quantized mobile AV</strong></td>
+              <td>NPU ile daha uygulanabilir</td>
+              <td>Dogruluk korunumu dikkat ister</td>
+              <td>Dogru QAT ile kabul edilebilir</td>
+              <td>Yok</td>
+              <td>Orta</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="refs-wrap">
+        <details>
+          <summary>Makale detaylarini ve kaynakcayi gor</summary>
+          <div class="refs-body">
+            <p class="refs-intro">Bu sekmenin cekirdegi, AV-HuBERT ailesi, sparse experts ve mobil kuantizasyon / edge optimizasyon literaturudur.</p>
+            <div class="source-list">
+              <div class="source-item">
+                <a href="https://arxiv.org/abs/2201.02184" target="_blank" rel="noreferrer">Robust Self-Supervised Audio-Visual Speech Recognition</a>
+                <div class="muted">AV-HuBERT ailesi icin temel primer kaynak.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://arxiv.org/abs/2405.11217" target="_blank" rel="noreferrer">MoHAVE</a>
+                <div class="muted">Mixture of Hierarchical Audio-Visual Experts ve sparse activation mantigi icin ilgili makale.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://arxiv.org/abs/2403.17518" target="_blank" rel="noreferrer">AD-AVSR</a>
+                <div class="muted">Asymmetric dual-stream iyilestirmeler ve robust AVSR baglami icin yararli.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://openreview.net/forum?id=Z1Qlm11uOM" target="_blank" rel="noreferrer">Masked Multimodal Cluster Prediction / AV-HuBERT lineage</a>
+                <div class="muted">AV temsil ogrenimi tarafinin kurucu referans ailesi.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://arxiv.org/abs/2312.00245" target="_blank" rel="noreferrer">Do VSR Models Generalize Beyond LRS3?</a>
+                <div class="muted">Gercek dunya genelleme zorlugu, cascade kararini etkileyen kritik bir hatirlatmadir.</div>
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <div class="footer">Bu sekme, "en guclu modeli acalim" yerine "en gerekli modaliteyi acalim" mantigini mobil EchoSpace boru hattina baglar.</div>
+    </section>
+
+    <section id="tab-priority" class="tab-panel" role="tabpanel">
+      <div class="section-head">
+        <div>
+          <span class="chip">Sosyal odakli uzamsal ses</span>
+          <h2>Conversation Priority ile Kokteyl Partisi Problemini Asmak</h2>
+        </div>
+        <p>
+          Microsoft Soundscape benzeri 3D ses motorlari cevreyi esit agirlikta seslendirdiginde sosyal ortamlarda
+          bilişsel yuk yaratabilir. Bu sekme, insan sesi frekanslari + tartisma akisi + uzamsal post-filtering
+          birleşimiyle hedef konusmaciyi one cikaran bir Conversation Priority filtresini tartisir.
+        </p>
+      </div>
+
+      <div class="callout" style="margin-top: 16px;">
+        <strong>Arastirma Sorusu</strong>
+        Microsoft Soundscape tarzinda bir 3D ses motoru, insan sesi frekanslarini ve tartisma akisini one alan bir
+        "Conversation Priority" filtresiyle guclendirildiginde kokteyl partisi ortamlarinda hedef konusmacinin
+        SNR'ini mevcut ticari standartlarin ustune tasiyabilir mi?
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-tile">
+          <strong>Temel eksik</strong>
+          <p class="muted">Genel 3D ses motoru her kaynagi esit agirlikta sunar; sosyal hiyerarsi kurmaz.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Katman 1</strong>
+          <p class="muted">Insan sesi icin kritik 1-4 kHz bandi merkezli spektral onceliklendirme.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Katman 2</strong>
+          <p class="muted">Diarization, turn-taking ve discussion flow ile sosyal oncelik verme.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Katman 3</strong>
+          <p class="muted">HRTF ve spatial post-filter ile hedefi yuksek, digerlerini baskili sunmak.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Beklenen sonuc</strong>
+          <p class="muted">10 dB civari ticari standardin uzerine cikabilen 15-20 dB sinifi teorik hedef.</p>
+        </div>
+      </div>
+
+      <div class="flow-grid">
+        <div class="flow-card">
+          <strong>1. Spektral filtre</strong>
+          <p class="muted">Insan sesi icin kritik bandlar korunur; alakasiz frekanslar zayiflatilir.</p>
+        </div>
+        <div class="flow-card">
+          <strong>2. Diarization</strong>
+          <p class="muted">Kimin ne zaman konustugu ayrilir; hedef konusmaci profili olusur.</p>
+        </div>
+        <div class="flow-card">
+          <strong>3. Turn-taking modeli</strong>
+          <p class="muted">Sohbetin akisi tahmin edilir; siradaki olasi konusmaci onceden agirlik kazanir.</p>
+        </div>
+        <div class="flow-card">
+          <strong>4. Spatial post-filter</strong>
+          <p class="muted">Hedef yonu yukseltilir; diger yonlerden gelen sesler baskilanir ama binaural ipuclari korunur.</p>
+        </div>
+        <div class="flow-card">
+          <strong>5. 3D ses cikisi</strong>
+          <p class="muted">Kullanici hem kimin oncelikli oldugunu hem de nerede oldugunu algilar.</p>
+        </div>
+      </div>
+
+      <div class="scatter-wrap">
+        <svg viewBox="0 0 920 400" aria-label="SNR improvement comparison">
+          <rect x="90" y="60" width="730" height="260" rx="24" fill="rgba(255,255,255,0.74)" stroke="rgba(63,44,26,0.12)"/>
+          <line x1="90" y1="320" x2="820" y2="320" stroke="rgba(63,44,26,0.16)" />
+          <line x1="90" y1="60" x2="90" y2="320" stroke="rgba(63,44,26,0.16)" />
+          <text x="350" y="354" fill="#64574a" font-size="15">Algoritmik ve baglamsal zeka seviyesi</text>
+          <text x="24" y="208" transform="rotate(-90 24 208)" fill="#64574a" font-size="15">Bagil SNR iyilestirmesi</text>
+          <circle cx="170" cy="248" r="14" fill="#1f5c7a" />
+          <text x="198" y="254" fill="#2a221a" font-size="15" font-weight="700">Directional mic</text>
+          <circle cx="320" cy="220" r="14" fill="#0f766e" />
+          <text x="348" y="226" fill="#2a221a" font-size="15" font-weight="700">Beamforming</text>
+          <circle cx="500" cy="180" r="14" fill="#c27c2c" />
+          <text x="528" y="186" fill="#2a221a" font-size="15" font-weight="700">AI hearing aid tier</text>
+          <circle cx="700" cy="128" r="14" fill="#b95656" />
+          <text x="728" y="134" fill="#2a221a" font-size="15" font-weight="700">Conversation priority</text>
+          <line x1="90" y1="182" x2="820" y2="182" stroke="rgba(194,124,44,0.18)" stroke-dasharray="8 8"/>
+          <text x="102" y="172" fill="#8c5b2a" font-size="13">Ticari AI hearing aid standard bandi</text>
+        </svg>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Sistem tipi</th>
+              <th>Tipik SNR yorumu</th>
+              <th>Asil eksik</th>
+              <th>Conversation Priority katkisi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Sabit yonlu mikrofon</strong></td>
+              <td>Dusuk-orta iyilestirme</td>
+              <td>Konusmaci hiyerarsisi bilmez</td>
+              <td>Yetersiz</td>
+            </tr>
+            <tr>
+              <td><strong>Klasik beamforming</strong></td>
+              <td>Yon odakli kazanc saglar</td>
+              <td>Yankida ve sosyal akista kör</td>
+              <td>Kismi</td>
+            </tr>
+            <tr>
+              <td><strong>AI hearing aid</strong></td>
+              <td>Bugun icin yuksek ticari referans</td>
+              <td>Genel sosyal baglam modellemesi sinirli</td>
+              <td>Iyi ama halen genellenmis</td>
+            </tr>
+            <tr>
+              <td><strong>Conversation priority motoru</strong></td>
+              <td>Hedef konusmaci icin daha agresif iyilestirme potansiyeli</td>
+              <td>Diarization + HRTF + NLP entegrasyonu ister</td>
+              <td>En yuksek potansiyel</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section-head" style="margin-top: 24px;">
+        <div>
+          <span class="chip">Hizli tablo</span>
+          <h2>Yaklasimlarin Ozet Karsilastirmasi</h2>
+        </div>
+        <p>Buradaki fark, sesi azaltmak degil dogru kisiyi onceliklendirmektir.</p>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Yaklasim</th>
+              <th>Guclu yani</th>
+              <th>Zayif yani</th>
+              <th>Siniflandirma etkisi</th>
+              <th>Yon tahmini</th>
+              <th>Uygulama maliyeti</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Frekans tabanli filtre</strong></td>
+              <td>Insan sesi bandini temizler</td>
+              <td>Iki insan arasinda secim yapamaz</td>
+              <td>Speech ayrimini kolaylastirir</td>
+              <td>Yok</td>
+              <td>Dusuk</td>
+            </tr>
+            <tr>
+              <td><strong>Diarization + turn-taking</strong></td>
+              <td>Hedef konusmaciyi baglamsal olarak bulur</td>
+              <td>Yanlis takipte drift riski var</td>
+              <td>Hedef speech'i daha iyi ayrisir</td>
+              <td>Dolayli</td>
+              <td>Orta</td>
+            </tr>
+            <tr>
+              <td><strong>Spatial post-filter</strong></td>
+              <td>Binaural ipuclari koruyarak baskilama yapar</td>
+              <td>Uzamsal kalibrasyon ister</td>
+              <td>Konusma netligini artirir</td>
+              <td>Yuksek</td>
+              <td>Orta</td>
+            </tr>
+            <tr>
+              <td><strong>Conversation priority full stack</strong></td>
+              <td>Sosyal ve uzamsal onceliklendirme birlikte gelir</td>
+              <td>Entegrasyon agir</td>
+              <td>Hedef konusmaci anlasilirligini maksimize eder</td>
+              <td>Yuksek</td>
+              <td>Yuksek</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="refs-wrap">
+        <details>
+          <summary>Makale detaylarini ve kaynakcayi gor</summary>
+          <div class="refs-body">
+            <p class="refs-intro">Bu sekme, Soundscape, binaural filtreleme ve kokteyl partisi literaturunun kesistigi kaynaklarla desteklendi.</p>
+            <div class="source-list">
+              <div class="source-item">
+                <a href="https://www.microsoft.com/en-us/research/project/soundscape/" target="_blank" rel="noreferrer">Project Soundscape</a>
+                <div class="muted">Microsoft Research tarafindaki resmi Soundscape giris noktasi.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://github.com/microsoft/soundscape" target="_blank" rel="noreferrer">Microsoft Soundscape GitHub</a>
+                <div class="muted">Acik kaynak uygulama mimarisi ve pratik uygulama referansi.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://developer.apple.com/documentation/avfaudio/avaudio3dmixing" target="_blank" rel="noreferrer">AVAudio3DMixing</a>
+                <div class="muted">Apple spatial audio ve 3D mixing katmaninin resmi dokumani.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6198890/" target="_blank" rel="noreferrer">Cocktail Party Problem Review</a>
+                <div class="muted">Kokteyl partisi probleminin bilişsel ve hesaplamali temelleri icin genel review.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://pubmed.ncbi.nlm.nih.gov/32233819/" target="_blank" rel="noreferrer">Adaptive spatial filtering preserves binaural cues</a>
+                <div class="muted">Binaural ipucu bozulmadan spatial filtering yapmanin onemi icin primer kaynak.</div>
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <div class="footer">Bu sekme, Soundscape tarzinda bir 3D ses motorunu statik navigasyondan sosyal odakli konusma yardimina tasiyan fikir katmanidir.</div>
+    </section>
+
+    <section id="tab-panns" class="tab-panel" role="tabpanel">
+      <div class="section-head">
+        <div>
+          <span class="chip">Ses omurgasi</span>
+          <h2>PANNs ve EchoSpace Icin Temel Model Secimi</h2>
+        </div>
+        <p>
+          Burada kullanicinin ozellikle vurguladigi PANNs makalesi merkezde tutuldu. PANNs yalnizca bir model degil,
+          AudioSet tabanli buyuk olcekli ses on-egitiminin EchoSpace gibi hedef sistemlere nasil aktarilacagini anlatan
+          ana omurgalardan biridir.
+        </p>
+      </div>
+
+      <div class="callout" style="margin-top: 16px;">
+        <strong>Arastirma Sorusu</strong>
+        EchoSpace icin hangi ses omurgasi daha mantiklidir: hafif YAMNet / EfficientAT tabani mi, yoksa PANNs gibi
+        daha buyuk on-egitimli bir model mi; bu karar pooling, transfer learning, balanced sampling ve deployment
+        maliyeti acisindan nasil verilmelidir?
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-tile">
+          <strong>PANNs katkisi</strong>
+          <p class="muted">AudioSet uzerinde buyuk olcekli on-egitimin diger gorevlere transferini somutlastirir.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Ana sonuc</strong>
+          <p class="muted">Wavegram-Logmel-CNN ile 0.439 mAP sinifina cikan bir ses omurgasi sunar.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Ogrenim dersi</strong>
+          <p class="muted">Balanced sampling, mixup ve derin CNN tasarimi buyuk veriyle gercekten fark yaratir.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>EchoSpace yorumu</strong>
+          <p class="muted">PANNs, frozen feature extractor veya teacher model olarak cok degerlidir.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Sinir</strong>
+          <p class="muted">81M parametre edge cihazda agir olabilir; deployment'ta distilled aileler daha rahat olur.</p>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h3>PANNs neden hala onemli?</h3>
+          <p class="muted">
+            Bu makale, ses tarafinda ImageNet-benzeri on-egitimin nasil calistigini sistematik bicimde gosteren
+            donum noktalarindan biridir. Daha sonra gelen pek cok model ailesi icin bir referans tabani olusturur.
+          </p>
+        </div>
+        <div class="mini-card">
+          <h3>EchoSpace icin en mantikli rol</h3>
+          <p class="muted">
+            PANNs'i dogrudan edge inference modeli gibi degil; teacher model, offline etiketleyici, frozen feature
+            extractor veya domain adaptation ogretmeni gibi kullanmak daha mantikli olabilir.
+          </p>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Omurga</th>
+              <th>Tipik profil</th>
+              <th>EchoSpace rolu</th>
+              <th>Deployment yorumu</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>YAMNet</strong></td>
+              <td>Hafif CNN, streaming dostu</td>
+              <td>Hizli baseline</td>
+              <td>Edge icin guvenli</td>
+            </tr>
+            <tr>
+              <td><strong>EfficientAT</strong></td>
+              <td>Kucuk ama daha guclu distilled CNN</td>
+              <td>Pratik final aday</td>
+              <td>INT8 tarafinda guclu</td>
+            </tr>
+            <tr>
+              <td><strong>PANNs CNN14</strong></td>
+              <td>Zengin embedding, yuksek temsil gucu</td>
+              <td>Teacher / feature extractor</td>
+              <td>Dogrudan edge icin agir</td>
+            </tr>
+            <tr>
+              <td><strong>PaSST / BEATs</strong></td>
+              <td>Yuksek semantik tavan</td>
+              <td>Kalite modu veya offline analiz</td>
+              <td>Guc butcesi ister</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="scatter-wrap">
+        <svg viewBox="0 0 920 390" aria-label="Backbone comparison">
+          <rect x="80" y="40" width="760" height="270" rx="24" fill="rgba(255,255,255,0.74)" stroke="rgba(63,44,26,0.12)" />
+          <line x1="80" y1="310" x2="840" y2="310" stroke="rgba(63,44,26,0.14)" />
+          <line x1="80" y1="40" x2="80" y2="310" stroke="rgba(63,44,26,0.14)" />
+          <text x="330" y="348" fill="#64574a" font-size="15">Deployment hafifligi</text>
+          <text x="24" y="210" transform="rotate(-90 24 210)" fill="#64574a" font-size="15">Temsil gucu</text>
+          <circle cx="160" cy="252" r="14" fill="#1f5c7a" />
+          <text x="188" y="258" fill="#2a221a" font-size="15" font-weight="700">YAMNet</text>
+          <circle cx="300" cy="208" r="14" fill="#0f766e" />
+          <text x="328" y="214" fill="#2a221a" font-size="15" font-weight="700">EfficientAT</text>
+          <circle cx="455" cy="162" r="14" fill="#c27c2c" />
+          <text x="483" y="168" fill="#2a221a" font-size="15" font-weight="700">PANNs</text>
+          <circle cx="640" cy="118" r="14" fill="#b95656" />
+          <text x="668" y="124" fill="#2a221a" font-size="15" font-weight="700">PaSST / BEATs</text>
+        </svg>
+      </div>
+
+      <div class="section-head" style="margin-top: 24px;">
+        <div>
+          <span class="chip">Hizli tablo</span>
+          <h2>Yaklasimlarin Ozet Karsilastirmasi</h2>
+        </div>
+        <p>Bu tablo, ses omurgasi secimini temsil gucu ile deployment arasindaki gerilim uzerinden ozetler.</p>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Yaklasim</th>
+              <th>Guclu yani</th>
+              <th>Zayif yani</th>
+              <th>Siniflandirma etkisi</th>
+              <th>Yon tahmini</th>
+              <th>Uygulama maliyeti</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>YAMNet baseline</strong></td>
+              <td>Kucuk, streaming dostu</td>
+              <td>SOTA tavanina uzak</td>
+              <td>Guvenli ilk adim</td>
+              <td>Ek spatial dal yoksa zayif</td>
+              <td>Dusuk</td>
+            </tr>
+            <tr>
+              <td><strong>EfficientAT edge</strong></td>
+              <td>Kucuk boyutta yuksek kalite</td>
+              <td>Teacher model kadar zengin degil</td>
+              <td>Edge final icin guclu</td>
+              <td>Ek spatial bilgi gerekir</td>
+              <td>Dusuk-Orta</td>
+            </tr>
+            <tr>
+              <td><strong>PANNs teacher</strong></td>
+              <td>Zengin AudioSet transferi</td>
+              <td>Buyuk bellek izi</td>
+              <td>Etiketleme ve adaptasyonda guclu</td>
+              <td>Dogrudan degil</td>
+              <td>Orta-Yuksek</td>
+            </tr>
+            <tr>
+              <td><strong>Transformer kalite modu</strong></td>
+              <td>Semantik tavan yuksek</td>
+              <td>Kuantizasyon ve gecikme riski</td>
+              <td>Zor siniflarda guclu</td>
+              <td>Modele bagli</td>
+              <td>Yuksek</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="refs-wrap">
+        <details>
+          <summary>Makale detaylarini ve kaynakcayi gor</summary>
+          <div class="refs-body">
+            <p class="refs-intro">Bu sekme, kullanicinin ozellikle vurguladigi PANNs makalesi ve ilgili temel ses omurgalarina dayanir.</p>
+            <div class="source-list">
+              <div class="source-item">
+                <a href="https://arxiv.org/abs/1912.10211" target="_blank" rel="noreferrer">PANNs: Large-Scale Pretrained Audio Neural Networks</a>
+                <div class="muted">Bu sekmenin merkezindeki primer makale ve temel arguman kaynagi.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://github.com/qiuqiangkong/audioset_tagging_cnn" target="_blank" rel="noreferrer">PANNs GitHub</a>
+                <div class="muted">Pretrained modeller ve pratik uygulama referansi.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://research.google.com/audioset/download.html" target="_blank" rel="noreferrer">AudioSet</a>
+                <div class="muted">PANNs ve diger ses omurgalari icin temel on-egitim veri uzayi.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://tfhub.dev/google/yamnet/1" target="_blank" rel="noreferrer">YAMNet</a>
+                <div class="muted">Hafif baseline ailelerinden biri olarak karsilastirma noktasi.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://arxiv.org/abs/2211.04772" target="_blank" rel="noreferrer">EfficientAT</a>
+                <div class="muted">Kuantizasyon ve edge deployment dostu daha yeni ses omurgasi ailesi.</div>
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <div class="footer">Bu sekme, EchoSpace'in ses omurgasini yalnizca en iyi benchmark skoruna gore degil, rol-temelli secmemiz gerektigini sabitler.</div>
+    </section>
+
+    <section id="tab-pipeline" class="tab-panel" role="tabpanel">
+      <div class="section-head">
+        <div>
+          <span class="chip">Final sentez</span>
+          <h2>Hedef Pipeline ve Hedef Iyilestirme</h2>
+        </div>
+        <p>
+          Bu son sekme, onceki bes sekmedeki tum arastirmalari EchoSpace icin tek bir hedef pipeline'a ve olculebilir
+          iyilestirme hedeflerine indirger. Burasi artik hem proje backlog'una hem de paper-first amiral model
+          tanimina donusen bolumdur.
+        </p>
+      </div>
+
+      <div class="callout" style="margin-top: 16px;">
+        <strong>Arastirma Sorusu</strong>
+        MediaPipe + DOA, SoundSpaces sim2real, cascading AV mantigi, conversation priority ve PANNs tabanli ses
+        omurgasi birlikte dusunuldugunde EchoSpace icin yalnizca en dusuk riskli degil, en guclu ve yayin etkisi en
+        yuksek amiral model nasil kurulmalidir; bunun yaninda hangi hafif baseline sahaya cikmak icin tutulmalidir?
+      </div>
+
+      <div class="two-col" style="margin-top: 18px;">
+        <div class="mini-card">
+          <h3>Amiral paper modeli</h3>
+          <p class="muted">
+            Hedefimiz artik yalnizca edge'de en ucuz boru hatti degil. PANNs teacher, SoundSpaces sim2real,
+            MediaPipe lock-on, Soundscape-ilhamli conversation priority ve daha guclu bir semantik ses omurgasiyla
+            yayin degeri yuksek bir cok modlu sistem kuruyoruz.
+          </p>
+        </div>
+        <div class="mini-card">
+          <h3>Deployable baseline</h3>
+          <p class="muted">
+            Bunun yaninda EfficientAT veya YAMNet tabanli hafif bir surum tutuluyor. Yani makale modeli ile sahaya
+            cikacak hizli baseline ayni sey degil; biri etkiyi maksimize eder, digeri maliyeti kontrol eder.
+          </p>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-tile">
+          <strong>Amiral ses omurgasi</strong>
+          <p class="muted">PANNs teacher + guclu kalite kolu olarak PaSST / BEATs sinifi; edge tarafinda hafif baseline ayrica tutulur.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Yon katmani</strong>
+          <p class="muted">Stereo veya mic-array'den GCC-PHAT / neural DOA ciktisi alinmali.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Gorsel katman</strong>
+          <p class="muted">MediaPipe ve gerekiyorsa PTZ / ROI, sesle yönlendirilmis lock-on almalı.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Sosyal katman</strong>
+          <p class="muted">Diarization + conversation priority, Soundscape mantigini tasarim ilkesi olarak alip hedef konusmaciyi one cikarmali.</p>
+        </div>
+        <div class="kpi-tile">
+          <strong>Kontrol katmani</strong>
+          <p class="muted">EMA + hysteresis + OOD gate + priority state machine tek karar noktasi olmali.</p>
+        </div>
+      </div>
+
+      <div class="scatter-wrap">
+        <svg viewBox="0 0 940 430" aria-label="Final EchoSpace pipeline">
+          <rect x="40" y="72" width="150" height="82" rx="20" fill="rgba(31,92,122,0.12)" stroke="rgba(31,92,122,0.22)"/>
+          <text x="115" y="104" text-anchor="middle" fill="#1f5c7a" font-size="17" font-weight="700">Stereo Audio</text>
+          <text x="115" y="126" text-anchor="middle" fill="#64574a" font-size="12">0.5 hop chunk</text>
+
+          <rect x="230" y="72" width="160" height="82" rx="20" fill="rgba(15,118,110,0.12)" stroke="rgba(15,118,110,0.22)"/>
+          <text x="310" y="104" text-anchor="middle" fill="#0f766e" font-size="17" font-weight="700">Research Backbone</text>
+          <text x="310" y="124" text-anchor="middle" fill="#64574a" font-size="12">PANNs teacher + PaSST / BEATs</text>
+          <text x="310" y="142" text-anchor="middle" fill="#64574a" font-size="11">Edge baseline: EfficientAT / YAMNet</text>
+
+          <rect x="230" y="186" width="160" height="82" rx="20" fill="rgba(194,124,44,0.12)" stroke="rgba(194,124,44,0.22)"/>
+          <text x="310" y="218" text-anchor="middle" fill="#8c5b2a" font-size="17" font-weight="700">DOA Branch</text>
+          <text x="310" y="240" text-anchor="middle" fill="#64574a" font-size="12">GCC-PHAT / Neural DOA</text>
+
+          <rect x="430" y="72" width="170" height="82" rx="20" fill="rgba(185,86,86,0.12)" stroke="rgba(185,86,86,0.22)"/>
+          <text x="515" y="104" text-anchor="middle" fill="#b95656" font-size="17" font-weight="700">Speech / Social</text>
+          <text x="515" y="126" text-anchor="middle" fill="#64574a" font-size="12">VAD + diarization + turn flow</text>
+          <text x="515" y="142" text-anchor="middle" fill="#64574a" font-size="11">Soundscape-ilhamli priority logic</text>
+
+          <rect x="430" y="186" width="170" height="82" rx="20" fill="rgba(47,95,150,0.12)" stroke="rgba(47,95,150,0.22)"/>
+          <text x="515" y="218" text-anchor="middle" fill="#2f5f96" font-size="17" font-weight="700">Visual Lock-On</text>
+          <text x="515" y="240" text-anchor="middle" fill="#64574a" font-size="12">MediaPipe + ROI / PTZ</text>
+
+          <rect x="650" y="124" width="190" height="102" rx="22" fill="rgba(145,92,126,0.12)" stroke="rgba(145,92,126,0.22)"/>
+          <text x="745" y="160" text-anchor="middle" fill="#915c7e" font-size="18" font-weight="700">Decision Engine</text>
+          <text x="745" y="184" text-anchor="middle" fill="#64574a" font-size="13">EMA + hysteresis + OOD + priority</text>
+          <text x="745" y="204" text-anchor="middle" fill="#64574a" font-size="13">state machine + event schema</text>
+
+          <rect x="650" y="276" width="190" height="82" rx="20" fill="rgba(15,118,110,0.12)" stroke="rgba(15,118,110,0.22)"/>
+          <text x="745" y="308" text-anchor="middle" fill="#0f766e" font-size="17" font-weight="700">HUD / Logs / STT</text>
+          <text x="745" y="330" text-anchor="middle" fill="#64574a" font-size="12">UI + metrics + downstream triggers</text>
+
+          <line x1="190" y1="113" x2="230" y2="113" stroke="rgba(42,34,26,0.3)" stroke-width="3"/>
+          <line x1="190" y1="113" x2="230" y2="227" stroke="rgba(42,34,26,0.3)" stroke-width="3"/>
+          <line x1="390" y1="113" x2="430" y2="113" stroke="rgba(42,34,26,0.3)" stroke-width="3"/>
+          <line x1="390" y1="227" x2="430" y2="227" stroke="rgba(42,34,26,0.3)" stroke-width="3"/>
+          <line x1="600" y1="113" x2="650" y2="160" stroke="rgba(42,34,26,0.3)" stroke-width="3"/>
+          <line x1="600" y1="227" x2="650" y2="190" stroke="rgba(42,34,26,0.3)" stroke-width="3"/>
+          <line x1="745" y1="226" x2="745" y2="276" stroke="rgba(42,34,26,0.3)" stroke-width="3"/>
+        </svg>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Hedef iyilestirme alani</th>
+              <th>Mevcut / baseline yorum</th>
+              <th>Hedef seviye</th>
+              <th>Neyle saglanacak?</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Kamera disi hedef yakalama suresi</strong></td>
+              <td>Blind sweep veya gec yeniden bulma</td>
+              <td>&lt; 1.5 sn lock-on sinifi</td>
+              <td>DOA + PTZ / ROI + MediaPipe lock-on</td>
+            </tr>
+            <tr>
+              <td><strong>Tek konusmaci lokalizasyonu</strong></td>
+              <td>Simule model tek basina kirilgan olabilir</td>
+              <td>&lt; 5 derece</td>
+              <td>SoundSpaces pretrain + gercek RIR fine-tune</td>
+            </tr>
+            <tr>
+              <td><strong>Overlap lokalizasyonu</strong></td>
+              <td>13 derece bariyeri tipik</td>
+              <td>7-10 derece bandina inmek, 5 dereceye yaklasmak</td>
+              <td>Audio-visual grounding + speaker conditioning + daha guclu paper modeli</td>
+            </tr>
+            <tr>
+              <td><strong>Konusma acikligi / SNR</strong></td>
+              <td>Genel spatial audio sosyal secim yapmaz</td>
+              <td>15-20 dB sinifi iyilestirme hedefi</td>
+              <td>Conversation priority + diarization + spatial post-filter</td>
+            </tr>
+            <tr>
+              <td><strong>Mobil hesaplama butcesi</strong></td>
+              <td>Always-on AV agir ve pahali</td>
+              <td>%40-60 maliyet azaltimi</td>
+              <td>Audio-first cascade + quantization + sparse experts</td>
+            </tr>
+            <tr>
+              <td><strong>HUD kararliligi</strong></td>
+              <td>Ham tahmin UI'da titreyebilir</td>
+              <td>Daha dusuk duplicate / flapping</td>
+              <td>EMA + hysteresis + priority state machine</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="roadmap">
+        <div class="road-card">
+          <div class="step">1</div>
+          <h3>Amiral modeli tanimla</h3>
+          <p class="muted">PANNs teacher, PaSST / BEATs kalite kolu, DOA ve social-audio katmanlarini tek paper mimarisi olarak ciz.</p>
+        </div>
+        <div class="road-card">
+          <div class="step">2</div>
+          <h3>Sim2Real veri ve teacher ogrenimi</h3>
+          <p class="muted">Hedef oda RIR'leri, debate konusmalari ve reduced-label ontology ile teacher tarafini guclendir.</p>
+        </div>
+        <div class="road-card">
+          <div class="step">3</div>
+          <h3>Decision engine ve lock-on kur</h3>
+          <p class="muted">MediaPipe lock-on, PTZ / ROI, EMA ve hysteresis ile tahminlerin UI ve eylem katmanina stabil aktigini garanti et.</p>
+        </div>
+        <div class="road-card">
+          <div class="step">4</div>
+          <h3>Hafif baseline'i ayri tut</h3>
+          <p class="muted">EfficientAT veya YAMNet tabanli edge surumu benchmark ve saha demosu icin ayri bir hat olarak koru.</p>
+        </div>
+      </div>
+
+      <div class="section-head" style="margin-top: 24px;">
+        <div>
+          <span class="chip">Chapter 21</span>
+          <h2>PANNs Entegrasyon Plani ve Literatur Taktikleri</h2>
+        </div>
+        <p>
+          Bu bolum, PANNs'i EchoSpace'e nasil ekleyecegimizi sadece fikir duzeyinde degil, dogrudan backlog'a
+          yazilabilir bir uygulama plani olarak cizer. Ana karar: YAMNet bozulmadan kalir; PANNs ise ayni runtime
+          sozlesmesini kullanan ayri bir ses omurgasi olarak eklenir.
+        </p>
+      </div>
+
+      <div class="callout" style="margin-top: 16px;">
+        <strong>Karar ozeti</strong>
+        PANNs ve YAMNet ilk asamada ensemble gibi ayni anda ortak karar veren iki model olmayacak. Ortak olan katmanlar
+        ses alma, buffer, spatial analiz, decision engine, STT ve benchmark altyapisidir; ayrilacak kisim ise
+        preprocessing, backbone, agirlik yukleme ve inference hattidir. Bu nedenle dogru ilk yapilanma
+        <strong>panns_pipeline</strong> + mevcut YAMNet baseline seklindedir.
+      </div>
+
+      <div class="table-wrap" style="margin-top: 18px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Karar ekseni</th>
+              <th>Secim</th>
+              <th>Neden?</th>
+              <th>Pratik etkisi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Model iliskisi</strong></td>
+              <td>PANNs ve YAMNet ayri backend</td>
+              <td>Arastirma hizi artar, baseline kirilmaz</td>
+              <td>A/B benchmark ve fallback kolaylasir</td>
+            </tr>
+            <tr>
+              <td><strong>Runtime sozlesmesi</strong></td>
+              <td>Ayni kalir: labels + probabilities</td>
+              <td>Decision engine yeniden yazilmaz</td>
+              <td>PANNs cikisi mevcut HUD katmanina takilabilir</td>
+            </tr>
+            <tr>
+              <td><strong>Ilk omurga</strong></td>
+              <td>PANNs CNN14 baseline</td>
+              <td>Makaledeki en temiz ve en kolay taklit edilebilir referans</td>
+              <td>Wavegram-Logmel-CNN ikinci faza birakilir</td>
+            </tr>
+            <tr>
+              <td><strong>Etiket uzayi</strong></td>
+              <td>AudioSet genis cikis + semantic projection</td>
+              <td>Mevcut 19 sinifli HUD mantigi korunur</td>
+              <td>PANNs teacher ve semantic decision birlikte calisir</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="three-grid" style="margin-top: 18px;">
+        <div class="mini-card">
+          <span class="tag">Simdi yap</span>
+          <h3>PANNs ayri pipeline olarak kurulacak</h3>
+          <p class="muted">
+            `panns_pipeline/` altinda config, preprocess, classifier, train ve evaluate akisi acilir. `current_pipeline`
+            tarafinda sadece classifier secim girisi eklenir; YAMNet dosyalari tasinmaz, silinmez, bozulmaz.
+          </p>
+        </div>
+        <div class="mini-card">
+          <span class="tag">Simdi yap</span>
+          <h3>Karar katmani ortak tutulacak</h3>
+          <p class="muted">
+            PANNs ham skorlari mevcut EMA + hysteresis + OOD + priority state machine katmanina verilir. Boylece
+            makaledeki model iyilestirmesi ile sizin HUD kararliligi ayni deney duzeninde olculebilir.
+          </p>
+        </div>
+        <div class="mini-card">
+          <span class="tag">Dokunma</span>
+          <h3>YAMNet baseline korunacak</h3>
+          <p class="muted">
+            YAMNet kaldirilmaz; benchmark, saha demosu ve fallback icin tutulur. PANNs ancak benzer veri rejiminde
+            daha iyi F1 verirse ana aday haline gelir.
+          </p>
+        </div>
+      </div>
+
+      <div class="section-head" style="margin-top: 24px;">
+        <div>
+          <span class="chip">Taktik seti</span>
+          <h2>Chapter 21'e Eklenecek Literaturlu Iyilestirmeler</h2>
+        </div>
+        <p>
+          Buradaki hedef, bir anda en buyuk modeli kurmak degil; F1'e en hizli ve en guvenli etki edecek hamleleri
+          once almak, daha agir arastirma adimlarini sonra acmaktir.
+        </p>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Taktik</th>
+              <th>Literatur mesaji</th>
+              <th>EchoSpace uyarlamasi</th>
+              <th>Faz</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Ogrenilmis class-specific threshold</strong></td>
+              <td>Global 0.5 yerine sinif bazli threshold F1'i anlamli bicimde artiriyor.</td>
+              <td>Validation prediction'larindan `thresholds.json` uret; action class'lar icin ayrik threshold kullan.</td>
+              <td>Phase 1</td>
+            </tr>
+            <tr>
+              <td><strong>Event-dependent post-processing</strong></td>
+              <td>Sinif bazli threshold + median smoothing ciddi F1 kazanci verebiliyor.</td>
+              <td>`glass_break`, `phone_ring`, `door_knock` gibi siniflara ayri median filter, min-duration ve merge-gap tanimla.</td>
+              <td>Phase 1</td>
+            </tr>
+            <tr>
+              <td><strong>Validated multi-resolution front-end</strong></td>
+              <td>Farkli olay sureleri icin tek pencere yerine coklu cozumurluk daha guclu.</td>
+              <td>Mevcut multires iskeletini heuristikten cikar; validation ile agirlik ve pencere secimini ogren.</td>
+              <td>Phase 1</td>
+            </tr>
+            <tr>
+              <td><strong>Time-shift + mixup egitimi</strong></td>
+              <td>Ozellikle event-based F1 tarafinda birlikte kullanilinca daha iyi calisiyor.</td>
+              <td>PANNs train hattina log-mel uzerinde mixup ve transient odakli time-shift ekle.</td>
+              <td>Phase 1</td>
+            </tr>
+            <tr>
+              <td><strong>Automatic threshold optimization</strong></td>
+              <td>Once mAP icin egit, sonra F1 icin threshold'lari optimize et mantigi calisiyor.</td>
+              <td>Model egitimi ile karar optimizasyonunu ayir; benchmark scripti threshold tuning modu kazansin.</td>
+              <td>Phase 1</td>
+            </tr>
+            <tr>
+              <td><strong>Temporal head</strong></td>
+              <td>Conformer / Transformer uzun ve kisa baglami birlikte tasiyabiliyor.</td>
+              <td>PANNs embedding ustune hafif Conformer temporal head ekleyerek 10 saniyelik context'i daha iyi kullan.</td>
+              <td>Phase 2</td>
+            </tr>
+            <tr>
+              <td><strong>Semi-supervised mean-teacher</strong></td>
+              <td>Ozellikle weak + unlabeled veri varsa event detection tarafinda kuvvetli.</td>
+              <td>Ancak elde guvenilir unlabeled in-domain veri birikirse ac; aksi halde erken optimizasyon olur.</td>
+              <td>Phase 2</td>
+            </tr>
+            <tr>
+              <td><strong>Posterior / score fusion</strong></td>
+              <td>Farkli model veya cozumurluklerin posterior ortalamasi faydali olabiliyor.</td>
+              <td>YAMNet + PANNs ensemble degil; once PANNs icindeki coklu resolution veya coklu seed fusion denenmeli.</td>
+              <td>Phase 2</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="roadmap">
+        <div class="road-card">
+          <div class="step">21.1</div>
+          <h3>PANNs baseline'i ayri kur</h3>
+          <p class="muted">CNN14 temelli PANNs classifier'i `panns_pipeline` altinda kur, 32 kHz ve 10 saniye context ile semantic projection cikisi ver.</p>
+        </div>
+        <div class="road-card">
+          <div class="step">21.2</div>
+          <h3>Threshold ve post-processing'i ogren</h3>
+          <p class="muted">Validation uzerinden class bazli threshold, median filter ve min duration parametrelerini optimize et.</p>
+        </div>
+        <div class="road-card">
+          <div class="step">21.3</div>
+          <h3>Multi-resolution ve augmentation'i ac</h3>
+          <p class="muted">Transient siniflarda time-shift, mixup ve validation ile ayarlanmis multi-resolution frontend kullan.</p>
+        </div>
+        <div class="road-card">
+          <div class="step">21.4</div>
+          <h3>Gerekirse temporal head'e gec</h3>
+          <p class="muted">F1 tavani erken doygun kalirsa PANNs embedding ustune hafif Conformer veya Transformer temporal head ekle.</p>
+        </div>
+      </div>
+
+      <div class="two-col" style="margin-top: 18px;">
+        <div class="mini-card">
+          <h3>Basari eşiği</h3>
+          <p class="muted">
+            Bu proje olceginde `F1 >= 0.50` basarili, `0.55+` cok iyi, `0.60+` ise gercekten guclu sonuc sayilir.
+            Bu nedenle Chapter 21'in ilk hedefi SOTA takibi degil; once mevcut `0.46-0.48` bandini asan stabil bir
+            PANNs varyanti cikarmaktir.
+          </p>
+        </div>
+        <div class="mini-card">
+          <h3>Neyi erken yapmiyoruz?</h3>
+          <p class="muted">
+            Sound separation, full ensemble ve agir semi-supervised kurgu ilk sprintte acilmiyor. Once ayri PANNs
+            backend, ogrenilmis threshold ve event-dependent post-processing ile temiz bir kazanc gorulmeli.
+          </p>
+        </div>
+      </div>
+
+      <div class="section-head" style="margin-top: 28px;">
+        <div>
+          <span class="chip">Chapter 22</span>
+          <h2>Hata Analizi, Label-Space Tavan ve Ceiling Hypothesis</h2>
+        </div>
+        <p>
+          Bu bolumun hedefi yeni model onermekten once mevcut F1 tavaninin neden olustugunu bulmaktir. Soru su:
+          EchoSpace su an model kapasitesi yuzunden mi, yoksa semantic label-space, ontology mismatch, multi-label
+          karisimi ve benchmark tasarimi yuzunden mi takiliyor?
+        </p>
+      </div>
+
+      <div class="callout" style="margin-top: 16px;">
+        <strong>Kisa cevap</strong>
+        Kanitlar, darboğazin sadece backbone zayifligi olmadigini gosteriyor. Temsilci current modellerde
+        `weighted raw F1` yaklasik `0.41`, `weighted decision F1` yaklasik `0.47` bandinda kaliyor. Buna karsilik
+        benchmark yalnizca `11 / 19` semantic etiketi kapsiyor, kliplerin yaklasik `46%`'si multi-label ve model
+        tahminlerinin yaklasik `16-17%`'si benchmarkta hic support almayan etiketlere gidiyor. Yani tavanin buyuk
+        kismi label-space ile task tanimindan geliyor.
+      </div>
+
+      <div class="three-grid" style="margin-top: 18px;">
+        <div class="mini-card">
+          <span class="tag">Kanit</span>
+          <h3>Benchmark coverage eksik</h3>
+          <p class="muted">
+            `semantic_labels.json` icindeki `19` etiketin sadece `11` tanesi SONYC render benchmarkta support aliyor.
+            `sirens` ve `vehicle_horn` gibi actionable siniflar bile bu benchmarkta hic gorunmuyor.
+          </p>
+        </div>
+        <div class="mini-card">
+          <span class="tag">Kanit</span>
+          <h3>Label-space heterojen</h3>
+          <p class="muted">
+            Ayni semantic etiket altinda akustik olarak birbirinden farkli kaynaklar toplanmis durumda:
+            `alarms_buzzer = Doorbell + Microwave_oven`, `door_knock = Drawer/Cupboard open-close`, `speech = Whispering + Speech_synthesizer`.
+          </p>
+        </div>
+        <div class="mini-card">
+          <span class="tag">Kanit</span>
+          <h3>Sink siniflar var</h3>
+          <p class="muted">
+            `wind_rain` ve `speech` etiketleri diger bircok olayi yutan sink siniflar gibi davraniyor. En iyi modellerde
+            bile pencerelerin buyuk kismi buralara akiyor; unsupported sinif tahminleri de precision'i asagi cekiyor.
+          </p>
+        </div>
+      </div>
+
+      <div class="section-head" style="margin-top: 24px;">
+        <div>
+          <span class="chip">Error Taxonomy</span>
+          <h2>En Buyuk 10 Hata Paterni</h2>
+        </div>
+        <p>Asagidaki paternlere benchmark result ve prediction CSV'lerinden tekrar tekrar rastlaniyor.</p>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Hata paterni</th>
+              <th>Kanit</th>
+              <th>Yorum</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td><strong>`wind_rain` sink sinifi</strong></td>
+              <td>`music -> wind_rain 122`, `speech -> wind_rain 111`, `alarms_buzzer -> wind_rain 110`, `rail -> wind_rain 105`</td>
+              <td>Ambience benzeri enerji dagilimlari bir kez dominant olunca farkli aileler ayni etikete cokuyor.</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td><strong>`speech` sink sinifi</strong></td>
+              <td>`glass_break -> speech 122`, `rail -> speech 68`, `phone_ring -> speech 67`</td>
+              <td>Ozellikle impulsif veya tonalli transient'ler speech ile karisabiliyor; speech etiketi de heterojen.</td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td><strong>Unsupported etiket vergisi</strong></td>
+              <td>Tahminlerin yaklasik `16-17%`'si benchmarkta support'u olmayan `bird`, `car_bus_truck`, `sirens`, `vehicle_horn` gibi etiketlere gidiyor.</td>
+              <td>Model bazen mantikli bir semantic sinif seciyor ama benchmark onu otomatik false positive yaziyor.</td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td><strong>`explosion_gunshot` precision cok dusuk</strong></td>
+              <td>Temsilci specialist modelde sinif bazinda `recall = 1.000`, `precision = 0.265`</td>
+              <td>Sistem impulsive alert sinifini cok acik tutuyor; recall aliyorsa da precision kaybediyor.</td>
+            </tr>
+            <tr>
+              <td>5</td>
+              <td><strong>`glass_break` ailesi karisiyor</strong></td>
+              <td>`glass_break` F1 yaklasik `0.295`; sik kayislar `speech`, `explosion_gunshot`, `cat`</td>
+              <td>`Crack` ve `Shatter` ayni etikette ama akustik profilleri farkli.</td>
+            </tr>
+            <tr>
+              <td>6</td>
+              <td><strong>`door_knock` etiket adi ile veri uyusmuyor</strong></td>
+              <td>Kaynaklarin cogu gercek knock degil; `Drawer_open_or_close` ve `Cupboard_open_or_close`</td>
+              <td>Etiket ismi kapida tiklama diyor, veri ise dolap/cekmecenin acilip kapanmasi.</td>
+            </tr>
+            <tr>
+              <td>7</td>
+              <td><strong>`alarms_buzzer` heterojen</strong></td>
+              <td>Ayni semantic etikete `Doorbell` ve `Microwave_oven` gidiyor; source-level hit oranlari dusuk</td>
+              <td>Appliance beep, chime ve alarm tek etikette toplaninca calibration bozuluyor.</td>
+            </tr>
+            <tr>
+              <td>8</td>
+              <td><strong>`speech` semantiği cok genis</strong></td>
+              <td>`Speech`, `Whispering`, `Speech_synthesizer`, erkek/kadin konusmasi ayni etikette</td>
+              <td>Dogal konusma ile synthesizer/whisper ayni degil; model speech ailesini cok genis ogreniyor.</td>
+            </tr>
+            <tr>
+              <td>9</td>
+              <td><strong>`music` etiketi asiri genis</strong></td>
+              <td>`music` altinda `12` farkli source sinif var; tambourine, bass drum, male singing, organ ...</td>
+              <td>Perkussif, tonal ve vokal muzik kaynaklari tek etikete coktugu icin ic varyans artiyor.</td>
+            </tr>
+            <tr>
+              <td>10</td>
+              <td><strong>Compositional multi-label kirilmasi</strong></td>
+              <td>`Female_singing;Bark` ve `Tambourine;Shatter` kombinasyonlarinda hit orani `0.000`</td>
+              <td>Model tek baskin aileye kayiyor; karisimlarin ayrik semantik bilesenleri ayni anda tasinamiyor.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="two-col" style="margin-top: 18px;">
+        <div class="mini-card">
+          <h3>Sistematik confusion kumeleri</h3>
+          <p class="muted">
+            `wind_rain / speech / music` bir ambience-vocal sink cluster gibi davraniyor. Diger tarafta
+            `glass_break / door_knock / explosion_gunshot / phone_ring / alarms_buzzer` ayni transient-alert
+            ailesi icinde surekli yer degistiriyor. `rail` de cogu zaman bu iki buyuk sink siniftan birine dusebiliyor.
+          </p>
+        </div>
+        <div class="mini-card">
+          <h3>Desteklenmeyen tahmin problemi</h3>
+          <p class="muted">
+            Benchmarkta support'u olmayan `bird` ve `car_bus_truck` current modellerde bile cok sik uretiliyor.
+            Bu etiketler semantic uzayda var ama benchmarkta yok; dolayisiyla model makul bir genis kategori sectiginde
+            bile precision cezasi aliyor.
+          </p>
+        </div>
+      </div>
+
+      <div class="section-head" style="margin-top: 24px;">
+        <div>
+          <span class="chip">Label Space</span>
+          <h2>19-Class Semantic Mapping Neyi Kaybettiriyor?</h2>
+        </div>
+        <p>Buradaki sorun yalnizca bilgi sıkismasi degil; bazen ayni etikete akustik olarak uyumsuz olaylar da toplanmis.</p>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Semantic etiket</th>
+              <th>Kaynaklar</th>
+              <th>Kayip tipi</th>
+              <th>Neden riskli?</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>`door_knock`</strong></td>
+              <td>`Drawer_open_or_close`, `Cupboard_open_or_close`, `Door`, `Knock`</td>
+              <td>Ontology mismatch</td>
+              <td>Etiket ismi ile veri akustigi ayni seyi anlatmiyor.</td>
+            </tr>
+            <tr>
+              <td><strong>`alarms_buzzer`</strong></td>
+              <td>`Doorbell`, `Microwave_oven`, `Chime`, `Alarm`</td>
+              <td>Heterojen collapse</td>
+              <td>Appliance beep ile alarm ayni karar bolgesine itiliyor.</td>
+            </tr>
+            <tr>
+              <td><strong>`speech`</strong></td>
+              <td>`Speech`, `Whispering`, `Speech_synthesizer`</td>
+              <td>Acoustic family merge</td>
+              <td>Dogal insan sesi ile sentetik ses ayni kalibrasyona zorlanıyor.</td>
+            </tr>
+            <tr>
+              <td><strong>`music`</strong></td>
+              <td>`Tambourine`, `Bass_drum`, `Male_singing`, `Organ`, `Accordion`, ...</td>
+              <td>Intra-class variance</td>
+              <td>Perkussif, tonal ve vokal kaynaklar ayni head'i paylasiyor.</td>
+            </tr>
+            <tr>
+              <td><strong>`explosion_gunshot`</strong></td>
+              <td>`Fireworks`, `Gunshot_and_gunfire`, `Boom`</td>
+              <td>Alert family blur</td>
+              <td>Yuksek recall alininca precision hizla dusuyor.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout" style="margin-top: 18px;">
+        <strong>Burada model iyi olsa bile takildigimiz yer</strong>
+        Semantic karar uzayi benchmark uzayi ile hizali degil. `19` etiketten `8` tanesi benchmarkta yok; yine de model
+        bunlari tahmin ettiginde false positive yaziliyor. Ustelik benchmarktaki bazi semantic etiketler de akustik
+        olarak tutarsiz sekilde tanimlanmis. Bu nedenle sadece daha buyuk backbone koymak tavan problemini cozmez.
+      </div>
+
+      <div class="section-head" style="margin-top: 24px;">
+        <div>
+          <span class="chip">Research Bets</span>
+          <h2>0.6+ Icin Label-Space Tarafinda 3 Arastirma Onersi</h2>
+        </div>
+        <p>Bu onermeler model seciminden once hedef uzayin kendisini duzeltmeyi amaclar.</p>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Arastirma hizi</th>
+              <th>Oneri</th>
+              <th>Beklenen kazanc</th>
+              <th>Risk</th>
+              <th>Olcum plani</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>22.1</strong></td>
+              <td>Ontology refactor: `door_knock`, `alarms_buzzer`, `speech`, `music` gibi etiketleri daha akustik-tutarli alt uzaylara ayir.</td>
+              <td>`+0.04` ile `+0.08` F1</td>
+              <td>Mevcut manifest ve benchmark yeniden eslenmek zorunda kalir.</td>
+              <td>Source-level hit variance, unsupported prediction rate, weighted raw/decion F1 once/sonra.</td>
+            </tr>
+            <tr>
+              <td><strong>22.2</strong></td>
+              <td>Hierarchical label space: once aile tahmini (`ambient`, `impact-alert`, `animal`, `vocal`, `transport`, `music`), sonra aile ici ince etiket.</td>
+              <td>`+0.03` ile `+0.07` F1</td>
+              <td>Iki asamali hata yayilimi olabilir.</td>
+              <td>Family accuracy, within-family F1, `wind_rain/speech` sink oraninin dusmesi.</td>
+            </tr>
+            <tr>
+              <td><strong>22.3</strong></td>
+              <td>Source-aware auxiliary supervision: semantic etiketin yanina source label veya source-family yardimci hedefi ekle.</td>
+              <td>`+0.03` ile `+0.06` F1</td>
+              <td>Egitim karmasikligi ve source label gurultusu artar.</td>
+              <td>`Microwave_oven`, `Speech_synthesizer`, `Crack`, `Ringtone`, `Subway...` gibi source bazli hit oranlariyla olc.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="two-col" style="margin-top: 18px;">
+        <div class="mini-card">
+          <h3>Ceiling hypothesis</h3>
+          <p class="muted">
+            Bu benchmark, bu semantic collapse ve bu decision uzayiyla sistemin gercekci tavani buyuk ihtimalle
+            `0.52-0.56` bandinda. `0.60+` ancak label-space redesign, hierarchical ontology ve source-aware
+            supervision gibi arastirma seviyesinde degisikliklerle mumkun gorunuyor.
+          </p>
+        </div>
+        <div class="mini-card">
+          <h3>Chapter 22 sonucu</h3>
+          <p class="muted">
+            Kisa ozet: sorun sadece "daha iyi model bulalim" degil. Sorun daha cok "hedef uzay akustik olarak tutarli mi,
+            benchmark uzayi ile semantic uzay ayni seyi mi olcuyor?" sorusunda. Chapter 23 ve 24'e gecmeden once bu
+            cevabin netlesmesi gerekiyor.
+          </p>
+        </div>
+      </div>
+
+      <div class="section-head" style="margin-top: 24px;">
+        <div>
+          <span class="chip">Hizli tablo</span>
+          <h2>Yaklasimlarin Ozet Karsilastirmasi</h2>
+        </div>
+        <p>Final paket kararlarini tek yerde toplamak icin bu tablo, onceki tum sekmelerin sentezidir.</p>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Yaklasim</th>
+              <th>Guclu yani</th>
+              <th>Zayif yani</th>
+              <th>Siniflandirma etkisi</th>
+              <th>Yon tahmini</th>
+              <th>Uygulama maliyeti</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Audio-first EchoSpace</strong></td>
+              <td>Hizli, olculebilir, edge dostu</td>
+              <td>Gorsel ve sosyal katman zayif kalir</td>
+              <td>Temel olay farkindaligi saglar</td>
+              <td>DOA varsa orta-yuksek</td>
+              <td>Dusuk-Orta</td>
+            </tr>
+            <tr>
+              <td><strong>Audio + Sim2Real localization</strong></td>
+              <td>Gercek odaya uyum saglar</td>
+              <td>Veri toplama ve ince ayar ister</td>
+              <td>Hedef olay lokalizasyonunu guclendirir</td>
+              <td>Yuksek</td>
+              <td>Orta</td>
+            </tr>
+            <tr>
+              <td><strong>Cascading AV EchoSpace</strong></td>
+              <td>Hesaplama yalnizca gerektiginde buyur</td>
+              <td>Mod gecisi tasarimi ister</td>
+              <td>Gürültüde daha saglam performans</td>
+              <td>MediaPipe lock-on ile yuksek</td>
+              <td>Orta-Yuksek</td>
+            </tr>
+            <tr>
+              <td><strong>Conversation-aware EchoSpace</strong></td>
+              <td>Sosyal olarak hedef sesi one alir</td>
+              <td>Diarization ve NLP katmani ister</td>
+              <td>Speech odakli anlasilabilirlik artar</td>
+              <td>Spatial post-filter ile yuksek</td>
+              <td>Yuksek</td>
+            </tr>
+            <tr>
+              <td><strong>Paper-first amiral model</strong></td>
+              <td>PANNs teacher, sim2real ve social audio birlesir</td>
+              <td>Egitim ve entegrasyon maliyeti yuksek</td>
+              <td>En yuksek yayin potansiyeli</td>
+              <td>Cok yuksek</td>
+              <td>Cok yuksek</td>
+            </tr>
+            <tr>
+              <td><strong>Tam cok modlu hedef pipeline</strong></td>
+              <td>En yuksek operasyonel potansiyel ve en guclu paper zemini</td>
+              <td>En kompleks entegrasyon</td>
+              <td>En dengeli genel sonuc</td>
+              <td>En yuksek potansiyel</td>
+              <td>Cok yuksek</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="refs-wrap">
+        <details>
+          <summary>Makale detaylarini ve kaynakcayi gor</summary>
+          <div class="refs-body">
+            <p class="refs-intro">Bu son sekme, onceki kaynaklarin uygulamaya donuk bir sentezidir; burada eklenen baglantilar dogrudan pipeline tasarimini destekleyen primer kaynaklardir.</p>
+            <div class="source-list">
+              <div class="source-item">
+                <a href="https://arxiv.org/abs/1912.10211" target="_blank" rel="noreferrer">PANNs</a>
+                <div class="muted">Ses omurgasi ve transfer ogrenimi temeli.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://openaccess.thecvf.com/content_CVPR_2020/html/Chen_SoundSpaces_Audio-Visual_Navigation_in_3D_Environments_CVPR_2020_paper.html" target="_blank" rel="noreferrer">SoundSpaces</a>
+                <div class="muted">Simule akustik alan ve embodied AI baglami.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://developers.google.com/mediapipe" target="_blank" rel="noreferrer">MediaPipe</a>
+                <div class="muted">Gorsel kilitlenme ve landmark motoru.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://www.microsoft.com/en-us/research/project/soundscape/" target="_blank" rel="noreferrer">Project Soundscape</a>
+                <div class="muted">Uzamsal ses motoru ve AAR baglami.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://arxiv.org/abs/2201.02184" target="_blank" rel="noreferrer">AV-HuBERT</a>
+                <div class="muted">Audio-visual speech representation ve cascading kararinin agir referansi.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://dcase.community/challenge2020/task-sound-event-detection-and-separation-in-domestic-environments-results" target="_blank" rel="noreferrer">DCASE 2020 Task 4 Results</a>
+                <div class="muted">Event-based macro-F1 bandi ve class-specific post-processing etkisini gosteren temel benchmark ozetleri.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://dcase.community/documents/workshop2020/proceedings/DCASE2020Workshop_Miyazaki_92.pdf" target="_blank" rel="noreferrer">Miyazaki et al. 2020</a>
+                <div class="muted">Conformer, event-dependent threshold + median filter, time-shift ve mixup kombinasyonunun dogrudan referansi.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://dcase.community/documents/challenge2020/technical_reports/DCASE2020_deBenito_93.pdf" target="_blank" rel="noreferrer">de Benito-Gorron et al. 2020</a>
+                <div class="muted">Coklu zaman-frekans cozumurlugu ve class-specific threshold tuning ile gelen kazancin referansi.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://openreview.net/forum?id=UeuQGtQNSd" target="_blank" rel="noreferrer">SGL-Thresh</a>
+                <div class="muted">Threshold optimizasyonunu F1 icin ogrenilebilir bir katman gibi ele alan hizli ve olceklenebilir yaklasim.</div>
+              </div>
+              <div class="source-item">
+                <a href="https://www.thejournal.club/c/paper/234283/" target="_blank" rel="noreferrer">Automatic Threshold Optimization for Weakly Labelled SED</a>
+                <div class="muted">Once mAP icin egit, sonra F1 icin threshold optimize et mantiginin SED tarafindaki dogrudan karsiligi.</div>
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <div class="footer">Bu son sekme, tum arastirmayi EchoSpace icin uygulanabilir teknik backlog ve olculebilir hedefler listesine cevirir.</div>
+    </section>
+
+    <div class="footer">
+      Dosya tek parca ve dis bagimlilik kullanmadan acilacak sekilde hazirlandi.
+    </div>
+  </div>
+
+  <script>
+    const buttons = document.querySelectorAll(".tab-btn");
+    const panels = document.querySelectorAll(".tab-panel");
+
+    buttons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const target = button.dataset.tab;
+
+        buttons.forEach((btn) => {
+          btn.classList.toggle("active", btn === button);
+          btn.setAttribute("aria-selected", btn === button ? "true" : "false");
+        });
+
+        panels.forEach((panel) => {
+          panel.classList.toggle("active", panel.id === target);
+        });
+      });
+    });
+  </script>
+</body>
+</html>

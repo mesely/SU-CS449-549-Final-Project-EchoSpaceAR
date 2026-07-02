@@ -1,0 +1,97 @@
+{
+  "speech": {
+    "mode": "lse",
+    "beta": 4.0,
+    "top_k": null
+  },
+  "crowd": {
+    "mode": "lse",
+    "beta": 6.0,
+    "top_k": null
+  },
+  "music": {
+    "mode": "lse",
+    "beta": 5.0,
+    "top_k": null
+  },
+  "dog": {
+    "mode": "topk_lse",
+    "beta": 8.0,
+    "top_k": 3
+  },
+  "cat": {
+    "mode": "lse",
+    "beta": 6.0,
+    "top_k": null
+  },
+  "bird": {
+    "mode": "lse",
+    "beta": 6.0,
+    "top_k": null
+  },
+  "vehicle_horn": {
+    "mode": "lse",
+    "beta": 6.0,
+    "top_k": null
+  },
+  "traffic_road": {
+    "mode": "lse",
+    "beta": 6.0,
+    "top_k": null
+  },
+  "car_bus_truck": {
+    "mode": "lse",
+    "beta": 6.0,
+    "top_k": null
+  },
+  "sirens": {
+    "mode": "lse",
+    "beta": 6.0,
+    "top_k": null
+  },
+  "rail": {
+    "mode": "lse",
+    "beta": 3.5,
+    "top_k": null
+  },
+  "aircraft": {
+    "mode": "lse",
+    "beta": 6.0,
+    "top_k": null
+  },
+  "engine_motion": {
+    "mode": "lse",
+    "beta": 6.0,
+    "top_k": null
+  },
+  "alarms_buzzer": {
+    "mode": "topk_lse",
+    "beta": 12.0,
+    "top_k": 3
+  },
+  "phone_ring": {
+    "mode": "topk_lse",
+    "beta": 10.0,
+    "top_k": 4
+  },
+  "wind_rain": {
+    "mode": "lse",
+    "beta": 4.0,
+    "top_k": null
+  },
+  "door_knock": {
+    "mode": "lse",
+    "beta": 6.0,
+    "top_k": null
+  },
+  "glass_break": {
+    "mode": "topk_lse",
+    "beta": 12.0,
+    "top_k": 3
+  },
+  "explosion_gunshot": {
+    "mode": "lse",
+    "beta": 6.0,
+    "top_k": null
+  }
+}
